@@ -42,12 +42,18 @@ describe('FullPlayer', () => {
     const user = userEvent.setup();
     render(<App />);
 
+    const miniPlayer = screen.getByRole('region', {name: '迷你播放器'});
     await user.click(screen.getByText('初光'));
     expect(screen.getByRole('region', {name: '沉浸式播放器'})).toBeInTheDocument();
-    expect(screen.getByRole('region', {name: '迷你播放器'})).toBeInTheDocument();
+    expect(miniPlayer).toBeInTheDocument();
+    expect(miniPlayer).toHaveAttribute('inert');
+    expect(miniPlayer).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('region', {name: '迷你播放器'})).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', {name: '收起播放器'}));
     expect(screen.queryByRole('region', {name: '沉浸式播放器'})).not.toBeInTheDocument();
-    expect(screen.getByRole('region', {name: '迷你播放器'})).toBeInTheDocument();
+    expect(miniPlayer).not.toHaveAttribute('inert');
+    expect(miniPlayer).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByRole('region', {name: '迷你播放器'})).toBe(miniPlayer);
   });
 });

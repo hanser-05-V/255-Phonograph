@@ -484,3 +484,22 @@ button {
   grid-column: 1;
   grid-row: 1;
 }
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .full-player__shell {
+    padding-right: 40px;
+    padding-left: 40px;
+  }
+
+  .full-player__grid {
+    grid-template-columns: minmax(430px, 0.98fr) minmax(340px, 1.02fr);
+    gap: 32px;
+  }
+
+  .disc-artwork {
+    width: 100%;
+    height: min(39vw, 570px);
+    min-width: 0;
+    min-height: 380px;
+  }
+}
