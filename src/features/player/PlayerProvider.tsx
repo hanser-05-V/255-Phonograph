@@ -150,7 +150,11 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       isPlayingRef.current = false;
       setIsPlaying(false);
     };
-    const handleEnded = () => nextRef.current();
+    const handleEnded = () => {
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      nextRef.current();
+    };
     const handleError = () => {
       setError(mediaErrorMessage(tracksRef.current[currentIndexRef.current]));
       isPlayingRef.current = false;
