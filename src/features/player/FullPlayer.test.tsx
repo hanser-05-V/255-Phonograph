@@ -49,7 +49,7 @@ describe('FullPlayer', () => {
     render(<App />);
 
     const miniPlayer = screen.getByRole('region', {name: '迷你播放器'});
-    await user.click(screen.getByText('初光'));
+    await user.click(within(miniPlayer).getByText('初光'));
     expect(screen.getByRole('region', {name: '沉浸式播放器'})).toBeInTheDocument();
     expect(miniPlayer).toBeInTheDocument();
     expect(miniPlayer).toHaveAttribute('inert');

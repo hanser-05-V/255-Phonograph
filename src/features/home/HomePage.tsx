@@ -19,7 +19,7 @@ export function HomePage() {
   const dailyTrackIndex = getDailyTrackIndex(getLocalDateKey(), player.tracks.length);
 
   return (
-    <div className="home-page">
+    <main className="home-page" id="home">
       <HomeHeader onQueryChange={setQuery} query={query} />
       <div className="home-page__content">
         <section aria-label="今日听歌" className="home-dashboard">
@@ -40,6 +40,6 @@ export function HomePage() {
         />
         <StoryPreview />
       </div>
-    </div>
+    </main>
   );
 }

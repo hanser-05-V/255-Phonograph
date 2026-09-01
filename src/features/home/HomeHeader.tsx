@@ -5,7 +5,7 @@ type HomeHeaderProps = {
 
 export function HomeHeader({query, onQueryChange}: HomeHeaderProps) {
   return (
-    <header className="home-header" id="home">
+    <header className="home-header">
       <a className="home-header__brand" href="#home">
         255留音机
       </a>

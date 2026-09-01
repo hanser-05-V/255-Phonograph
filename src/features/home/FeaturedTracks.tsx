@@ -14,7 +14,7 @@ export function FeaturedTracks({tracks, query, onPlayTrack}: FeaturedTracksProps
     <section aria-labelledby="featured-tracks-title" className="featured-tracks" id="music">
       <header>
         <p>精选音乐</p>
-        <h2 id="featured-tracks-title">从这里开始听</h2>
+        <h2 id="featured-tracks-title">精选歌曲</h2>
       </header>
       {filteredTracks.length > 0 ? (
         <div className="featured-tracks__list">
