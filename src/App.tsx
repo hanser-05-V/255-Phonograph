@@ -1,8 +1,14 @@
+import {MiniPlayer} from './features/player/MiniPlayer';
+import {demoTracks} from './features/player/demo-tracks';
+import {PlayerProvider} from './features/player/PlayerProvider';
+
 export function App() {
   return (
-    <main>
-      <h1>255留音机</h1>
-      <section role="region" aria-label="迷你播放器" />
-    </main>
+    <PlayerProvider tracks={demoTracks}>
+      <main>
+        <h1>255留音机</h1>
+        <MiniPlayer />
+      </main>
+    </PlayerProvider>
   );
 }
