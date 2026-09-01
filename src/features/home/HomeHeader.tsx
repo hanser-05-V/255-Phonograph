@@ -11,8 +11,8 @@ export function HomeHeader({query, onQueryChange}: HomeHeaderProps) {
       </a>
       <nav aria-label="主导航">
         <a href="#home">首页</a>
-        <a href="#music">音乐</a>
-        <a href="#stories">故事</a>
+        <a href="#music">音乐馆</a>
+        <a href="#stories">故事会</a>
       </nav>
       <label className="home-header__search">
         <span>搜索</span>

@@ -42,6 +42,9 @@ describe('HomePage', () => {
     renderHome();
 
     expect(screen.getByRole('navigation', {name: '主导航'})).toBeInTheDocument();
+    expect(screen.getByRole('link', {name: '首页'})).toHaveAttribute('href', '#home');
+    expect(screen.getByRole('link', {name: '音乐馆'})).toHaveAttribute('href', '#music');
+    expect(screen.getByRole('link', {name: '故事会'})).toHaveAttribute('href', '#stories');
     expect(screen.getByText('今天的憨浓度')).toBeInTheDocument();
     expect(screen.getByRole('button', {name: /每日憨曲/})).toBeEnabled();
     expect(screen.getByRole('button', {name: '每日一签'})).toBeDisabled();
