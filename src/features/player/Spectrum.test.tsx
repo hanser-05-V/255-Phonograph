@@ -59,6 +59,39 @@ it('reuses one Web Audio graph when remounted for the same audio element', async
   expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
 });
 
+it('cancels active spectrum sampling when playback pauses', async () => {
+  const analyser = {
+    connect: vi.fn(),
+    fftSize: 0,
+    frequencyBinCount: 64,
+    getByteFrequencyData: vi.fn(),
+  };
+  const source = {connect: vi.fn()};
+  const context = {
+    createAnalyser: vi.fn(() => analyser),
+    createMediaElementSource: vi.fn(() => source),
+    destination: {},
+    resume: vi.fn().mockResolvedValue(undefined),
+  };
+  vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
+    return context;
+  }));
+  const requestFrame = vi.fn(() => 42);
+  const cancelFrame = vi.fn();
+  vi.stubGlobal('requestAnimationFrame', requestFrame);
+  vi.stubGlobal('cancelAnimationFrame', cancelFrame);
+  const audio = new Audio();
+
+  const {rerender} = render(<Spectrum audio={audio} isPlaying />);
+  await waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1));
+
+  rerender(<Spectrum audio={audio} isPlaying={false} />);
+
+  expect(cancelFrame).toHaveBeenCalledTimes(1);
+  expect(cancelFrame).toHaveBeenCalledWith(42);
+  expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
+});
+
 it('renders nothing when Web Audio creation fails', async () => {
   const AudioContextMock = vi.fn(function AudioContextMock() {
     throw new Error('Web Audio unavailable');
