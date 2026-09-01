@@ -442,20 +442,62 @@ button {
   letter-spacing: 0.08em;
 }
 
-.full-player__future-panel {
-  position: relative;
+.full-player__visuals {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 54px;
+  gap: 18px;
   height: 230px;
-  margin-top: 54px;
+  margin-top: 38px;
+  padding-left: 22px;
   border-left: 1px solid rgba(255, 255, 255, 0.16);
 }
 
-.full-player__future-panel span {
-  position: absolute;
-  bottom: 0;
-  left: 22px;
-  color: rgba(247, 242, 232, 0.22);
-  font-size: 10px;
-  letter-spacing: 0.32em;
+.lyrics-panel {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 48px 12px;
+  scrollbar-width: none;
+  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+}
+
+.lyrics-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.lyrics-panel__line,
+.lyrics-panel__empty {
+  margin: 0;
+  color: rgba(247, 242, 232, 0.38);
+  font-size: 16px;
+  line-height: 2.2;
+  transition: color 180ms ease;
+}
+
+.lyrics-panel__line[aria-current='true'] {
+  color: #fff8e9;
+  font-weight: 600;
+}
+
+.lyrics-panel__empty {
+  align-self: center;
+  color: rgba(247, 242, 232, 0.48);
+}
+
+.spectrum {
+  display: flex;
+  height: 54px;
+  align-items: stretch;
+  gap: 2px;
+  opacity: 0.7;
+}
+
+.spectrum__bar {
+  width: 100%;
+  min-width: 1px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(to top, rgba(232, 192, 106, 0.42), #f6d994);
+  transform-origin: center bottom;
+  transition: transform 70ms linear;
 }
 
 .full-player__controls {
