@@ -94,6 +94,14 @@ button {
   font-size: 13px;
 }
 
+.mini-player__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #f6d994;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .player-controls,
 .player-controls__timeline,
 .player-controls__transport,
@@ -553,7 +561,7 @@ button {
   }
 }
 
-@media (max-width: 959px) {
+@media (max-width: 1023px) {
   .app-shell {
     padding: 24px;
   }

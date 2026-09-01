@@ -2,7 +2,7 @@ import {PlayerControls} from './PlayerControls';
 import {usePlayer} from './usePlayer';
 
 export function MiniPlayer() {
-  const {currentTrack, isExpanded, setExpanded} = usePlayer();
+  const {currentTrack, error, isExpanded, setExpanded} = usePlayer();
 
   return (
     <section
@@ -24,6 +24,11 @@ export function MiniPlayer() {
           <p>{currentTrack.artist}</p>
         </div>
       </div>
+      {error ? (
+        <p aria-label="音频状态" className="mini-player__error" role="status">
+          {error}
+        </p>
+      ) : null}
       <PlayerControls />
     </section>
   );
