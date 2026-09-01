@@ -31,7 +31,8 @@ it('reuses one Web Audio graph when remounted for the same audio element', async
   vi.stubGlobal('AudioContext', AudioContextMock);
   const requestFrame = vi.fn(() => 1);
   vi.stubGlobal('requestAnimationFrame', requestFrame);
-  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  const cancelFrame = vi.fn();
+  vi.stubGlobal('cancelAnimationFrame', cancelFrame);
   const audio = new Audio();
 
   const first = render(<Spectrum audio={audio} isPlaying />);
@@ -46,10 +47,12 @@ it('reuses one Web Audio graph when remounted for the same audio element', async
     expect(bars[63]).toHaveStyle({transform: 'scaleY(0.5019607843137255)'});
   });
   first.unmount();
+  expect(cancelFrame).toHaveBeenCalledWith(1);
 
   const second = render(<Spectrum audio={audio} isPlaying />);
   await waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(2));
   second.unmount();
+  expect(cancelFrame).toHaveBeenCalledTimes(2);
 
   expect(AudioContextMock).toHaveBeenCalledTimes(1);
   expect(context.resume).toHaveBeenCalledTimes(1);
@@ -67,6 +70,31 @@ it('renders nothing when Web Audio creation fails', async () => {
   render(<Spectrum audio={new Audio()} isPlaying />);
 
   await waitFor(() => expect(screen.queryByTestId('spectrum')).not.toBeInTheDocument());
+});
+
+it('restores the direct audio path when graph creation fails after creating the source', async () => {
+  const destination = {};
+  const source = {connect: vi.fn()};
+  const context = {
+    createAnalyser: vi.fn(() => {
+      throw new Error('analyser unavailable');
+    }),
+    createMediaElementSource: vi.fn(() => source),
+    destination,
+    resume: vi.fn().mockResolvedValue(undefined),
+  };
+  vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
+    return context;
+  }));
+  vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+  render(<Spectrum audio={new Audio()} isPlaying />);
+
+  await waitFor(() => expect(screen.queryByTestId('spectrum')).not.toBeInTheDocument());
+  expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
+  expect(source.connect).toHaveBeenCalledTimes(1);
+  expect(source.connect).toHaveBeenCalledWith(destination);
 });
 
 it('renders nothing when resuming Web Audio fails', async () => {

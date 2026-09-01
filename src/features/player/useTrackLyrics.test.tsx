@@ -1,4 +1,4 @@
-import {cleanup, render, screen} from '@testing-library/react';
+import {act, cleanup, render, screen} from '@testing-library/react';
 import {afterEach, expect, it, vi} from 'vitest';
 import {useTrackLyrics} from './useTrackLyrics';
 
@@ -35,7 +35,23 @@ it('fetches and parses the current lyrics URL', async () => {
   expect(fetch).toHaveBeenCalledWith('/track.lrc', expect.objectContaining({signal: expect.any(AbortSignal)}));
 });
 
-it('clears stale lines and ignores an obsolete lyrics request', async () => {
+it('clears displayed lyrics when the URL changes', async () => {
+  const next = deferred<{ok: boolean; text: () => Promise<string>}>();
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce({ok: true, text: () => Promise.resolve('[00:01.00]旧歌词')})
+    .mockReturnValueOnce(next.promise);
+  vi.stubGlobal('fetch', fetchMock);
+
+  const {rerender} = render(<LyricsHarness lyricsUrl="/first.lrc" />);
+  expect(await screen.findByText('旧歌词')).toBeInTheDocument();
+
+  rerender(<LyricsHarness lyricsUrl="/second.lrc" />);
+
+  expect(screen.queryByText('旧歌词')).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+});
+
+it('ignores an obsolete request that settles after the current lyrics', async () => {
   const first = deferred<{ok: boolean; text: () => Promise<string>}>();
   const second = deferred<{ok: boolean; text: () => Promise<string>}>();
   const fetchMock = vi.fn()
@@ -44,13 +60,18 @@ it('clears stale lines and ignores an obsolete lyrics request', async () => {
   vi.stubGlobal('fetch', fetchMock);
 
   const {rerender} = render(<LyricsHarness lyricsUrl="/first.lrc" />);
-  first.resolve({ok: true, text: () => Promise.resolve('[00:01.00]旧歌词')});
-  expect(await screen.findByText('旧歌词')).toBeInTheDocument();
-
   rerender(<LyricsHarness lyricsUrl="/second.lrc" />);
-  expect(screen.queryByText('旧歌词')).not.toBeInTheDocument();
   expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
 
   second.resolve({ok: true, text: () => Promise.resolve('[00:02.00]新歌词')});
   expect(await screen.findByText('新歌词')).toBeInTheDocument();
+
+  await act(async () => {
+    first.resolve({ok: true, text: () => Promise.resolve('[00:01.00]旧歌词')});
+    await first.promise;
+    await Promise.resolve();
+  });
+
+  expect(screen.getByText('新歌词')).toBeInTheDocument();
+  expect(screen.queryByText('旧歌词')).not.toBeInTheDocument();
 });
