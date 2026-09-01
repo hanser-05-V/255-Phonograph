@@ -1,0 +1,53 @@
+import {cleanup, render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {App} from '../../App';
+import {demoTracks} from './demo-tracks';
+import {FullPlayer} from './FullPlayer';
+import {PlayerProvider} from './PlayerProvider';
+
+beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe('FullPlayer', () => {
+  it('opens at its final visual state and rotates only while playing', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+
+    render(
+      <PlayerProvider tracks={demoTracks}>
+        <FullPlayer />
+      </PlayerProvider>,
+    );
+
+    const disc = screen.getByTestId('disc');
+    expect(disc).toHaveAttribute('data-playing', 'false');
+    expect(screen.queryByTestId('intro-overlay')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: '收起播放器'})).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: '播放'}));
+    expect(disc).toHaveAttribute('data-playing', 'true');
+
+    await user.click(screen.getByRole('button', {name: '暂停'}));
+    expect(disc).toHaveAttribute('data-playing', 'false');
+  });
+
+  it('shares expansion state with the persistent mini player', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByText('初光'));
+    expect(screen.getByRole('region', {name: '沉浸式播放器'})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: '迷你播放器'})).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', {name: '收起播放器'}));
+    expect(screen.queryByRole('region', {name: '沉浸式播放器'})).not.toBeInTheDocument();
+    expect(screen.getByRole('region', {name: '迷你播放器'})).toBeInTheDocument();
+  });
+});
