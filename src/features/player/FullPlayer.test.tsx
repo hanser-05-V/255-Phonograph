@@ -32,6 +32,15 @@ describe('FullPlayer', () => {
     expect(positioner).toContainElement(disc);
     expect(positioner).toHaveClass('disc-artwork__disc-positioner');
     expect(disc).toHaveClass('disc');
+    const positionerStyle = window.getComputedStyle(positioner);
+    const discStyle = window.getComputedStyle(disc);
+    expect(positionerStyle.position).toBe('absolute');
+    expect(positionerStyle.top).toBe('50%');
+    expect(positionerStyle.transform).toBe('translateY(-50%)');
+    expect(discStyle.position).not.toBe('absolute');
+    expect(discStyle.top).not.toBe('50%');
+    expect(discStyle.transform).not.toContain('translateY');
+    expect(discStyle.animation).toContain('disc-spin');
     expect(positioner).not.toHaveAttribute('data-playing');
     expect(disc).toHaveAttribute('data-playing', 'false');
     expect(screen.queryByTestId('intro-overlay')).not.toBeInTheDocument();

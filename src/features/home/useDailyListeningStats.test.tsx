@@ -99,7 +99,30 @@ describe('useDailyListeningStats', () => {
       vi.advanceTimersByTime(1_000);
     });
     expect(currentView()).toEqual({
-      date: '2026-09-02', totalSeconds: 1, minutes: 0, songCount: 0, concentration: 0,
+      date: '2026-09-02', totalSeconds: 0, minutes: 0, songCount: 0, concentration: 0,
+    });
+  });
+
+  it('loads the new local date without adding time when midnight passes while paused', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 1, 23, 59, 59));
+    writeDailyStats(addListeningSeconds(
+      createEmptyDailyStats('2026-09-01'),
+      '2026-09-01',
+      'track-a',
+      25,
+    ));
+    render(<DailyListeningHarness isPlaying={false} trackId="track-a" />);
+
+    expect(currentView()).toEqual({
+      date: '2026-09-01', totalSeconds: 25, minutes: 0, songCount: 1, concentration: 1,
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+    expect(currentView()).toEqual({
+      date: '2026-09-02', totalSeconds: 0, minutes: 0, songCount: 0, concentration: 0,
     });
   });
 });

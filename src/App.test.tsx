@@ -22,6 +22,12 @@ describe('App', () => {
     expect(screen.getByRole('heading', {name: '精选歌曲'})).toBeInTheDocument();
   });
 
+  it('reserves desktop clearance for the mini-player error state', () => {
+    render(<App />);
+
+    expect(window.getComputedStyle(screen.getByRole('main')).paddingBottom).toBe('208px');
+  });
+
   it('shares expansion state between the persistent and full players', async () => {
     const user = userEvent.setup();
     render(<App />);

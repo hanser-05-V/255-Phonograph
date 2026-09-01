@@ -5,7 +5,6 @@ import {FeaturedTracks} from './FeaturedTracks';
 import {HomeHeader} from './HomeHeader';
 import {ListeningSummary} from './ListeningSummary';
 import {StoryPreview} from './StoryPreview';
-import {getLocalDateKey} from './daily-listening';
 import {getDailyTrackIndex} from './home-utils';
 import {useDailyListeningStats} from './useDailyListeningStats';
 
@@ -16,7 +15,7 @@ export function HomePage() {
     isPlaying: player.isPlaying,
     trackId: player.currentTrack.id,
   });
-  const dailyTrackIndex = getDailyTrackIndex(getLocalDateKey(), player.tracks.length);
+  const dailyTrackIndex = getDailyTrackIndex(stats.date, player.tracks.length);
 
   return (
     <main className="home-page" id="home">

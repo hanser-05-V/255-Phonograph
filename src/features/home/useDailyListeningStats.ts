@@ -15,11 +15,17 @@ export function useDailyListeningStats({isPlaying, trackId}: {
   const [stats, setStats] = useState(() => readDailyStats(getLocalDateKey()));
 
   useEffect(() => {
-    if (!isPlaying) return;
-
     const timer = window.setInterval(() => {
       setStats((current) => {
         const date = getLocalDateKey();
+        if (current.date !== date) {
+          return readDailyStats(date);
+        }
+
+        if (!isPlaying) {
+          return current;
+        }
+
         const next = addListeningSeconds(current, date, trackId, 1);
         writeDailyStats(next);
         return next;

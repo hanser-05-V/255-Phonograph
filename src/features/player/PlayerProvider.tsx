@@ -74,20 +74,80 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const tracksRef = useRef(tracks);
   const currentIndexRef = useRef(currentIndex);
-  const isPlayingRef = useRef(isPlaying);
+  const desiredPlayingRef = useRef(false);
+  const requestTokenRef = useRef(0);
+  const pendingPlayTokenRef = useRef<number | null>(null);
+  const loadedSourceRef = useRef<{index: number; url: string} | null>(null);
   const nextRef = useRef<() => void>(() => undefined);
 
   tracksRef.current = tracks;
   currentIndexRef.current = currentIndex;
-  isPlayingRef.current = isPlaying;
+
+  const setConfirmedPlaying = useCallback((playing: boolean) => {
+    setIsPlaying(playing);
+  }, []);
+
+  const loadSource = useCallback((element: HTMLAudioElement, index: number) => {
+    const track = tracksRef.current[index];
+    loadedSourceRef.current = {index, url: track.audioUrl};
+    element.src = track.audioUrl;
+    setCurrentTime(0);
+    setDuration(0);
+    setError(null);
+  }, []);
+
+  const startPlayback = useCallback(async (element: HTMLAudioElement, token: number) => {
+    pendingPlayTokenRef.current = token;
+
+    try {
+      await element.play();
+    } catch {
+      if (token !== requestTokenRef.current || !desiredPlayingRef.current) {
+        return;
+      }
+
+      pendingPlayTokenRef.current = null;
+      desiredPlayingRef.current = false;
+      setConfirmedPlaying(false);
+      setError(mediaErrorMessage);
+      return;
+    }
+
+    if (token !== requestTokenRef.current || !desiredPlayingRef.current) {
+      return;
+    }
+
+    pendingPlayTokenRef.current = null;
+    setConfirmedPlaying(true);
+    setError(null);
+  }, [setConfirmedPlaying]);
+
+  const selectTrack = useCallback((index: number) => {
+    const element = audioRef.current;
+    const shouldPlay = desiredPlayingRef.current;
+    const token = ++requestTokenRef.current;
+    pendingPlayTokenRef.current = shouldPlay ? token : null;
+    currentIndexRef.current = index;
+    setCurrentIndex(index);
+    setConfirmedPlaying(false);
+
+    if (!element) {
+      return;
+    }
+
+    loadSource(element, index);
+    if (shouldPlay) {
+      void startPlayback(element, token);
+    }
+  }, [loadSource, setConfirmedPlaying, startPlayback]);
 
   const next = useCallback(() => {
-    setCurrentIndex((index) => nextIndex(index, tracksRef.current.length));
-  }, []);
+    selectTrack(nextIndex(currentIndexRef.current, tracksRef.current.length));
+  }, [selectTrack]);
 
   const previous = useCallback(() => {
-    setCurrentIndex((index) => previousIndex(index, tracksRef.current.length));
-  }, []);
+    selectTrack(previousIndex(currentIndexRef.current, tracksRef.current.length));
+  }, [selectTrack]);
 
   nextRef.current = next;
 
@@ -97,24 +157,21 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       return;
     }
 
-    if (isPlayingRef.current) {
+    if (desiredPlayingRef.current) {
+      desiredPlayingRef.current = false;
+      requestTokenRef.current += 1;
+      pendingPlayTokenRef.current = null;
       element.pause();
-      isPlayingRef.current = false;
-      setIsPlaying(false);
+      setConfirmedPlaying(false);
       return;
     }
 
-    try {
-      await element.play();
-      isPlayingRef.current = true;
-      setIsPlaying(true);
-      setError(null);
-    } catch {
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-      setError(mediaErrorMessage);
-    }
-  }, []);
+    desiredPlayingRef.current = true;
+    const token = ++requestTokenRef.current;
+    setConfirmedPlaying(false);
+    setError(null);
+    await startPlayback(element, token);
+  }, [setConfirmedPlaying, startPlayback]);
 
   const playTrack = useCallback(async (index: number) => {
     const element = audioRef.current;
@@ -122,23 +179,25 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       return;
     }
 
-    isPlayingRef.current = true;
-    setIsPlaying(true);
+    desiredPlayingRef.current = true;
+    const token = ++requestTokenRef.current;
+    pendingPlayTokenRef.current = token;
+    setConfirmedPlaying(false);
     setError(null);
 
-    if (index !== currentIndexRef.current) {
+    const loadedSource = loadedSourceRef.current;
+    if (
+      index !== currentIndexRef.current ||
+      loadedSource?.index !== index ||
+      loadedSource.url !== tracksRef.current[index].audioUrl
+    ) {
+      currentIndexRef.current = index;
       setCurrentIndex(index);
-      return;
+      loadSource(element, index);
     }
 
-    try {
-      await element.play();
-    } catch {
-      isPlayingRef.current = false;
-      setIsPlaying(false);
-      setError(mediaErrorMessage);
-    }
-  }, []);
+    await startPlayback(element, token);
+  }, [loadSource, setConfirmedPlaying, startPlayback]);
 
   const seek = useCallback((seconds: number) => {
     const element = audioRef.current;
@@ -181,23 +240,31 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
     const updateDuration = () =>
       setDuration(Number.isFinite(element.duration) ? element.duration : 0);
     const handlePlay = () => {
-      isPlayingRef.current = true;
-      setIsPlaying(true);
+      if (!desiredPlayingRef.current || pendingPlayTokenRef.current !== null) {
+        return;
+      }
+
+      setConfirmedPlaying(true);
       setError(null);
     };
     const handlePause = () => {
-      isPlayingRef.current = false;
-      setIsPlaying(false);
+      if (desiredPlayingRef.current) {
+        return;
+      }
+
+      setConfirmedPlaying(false);
     };
     const handleEnded = () => {
-      isPlayingRef.current = true;
-      setIsPlaying(true);
+      desiredPlayingRef.current = true;
+      setConfirmedPlaying(false);
       nextRef.current();
     };
     const handleError = () => {
+      requestTokenRef.current += 1;
+      pendingPlayTokenRef.current = null;
+      desiredPlayingRef.current = false;
       setError(mediaErrorMessage);
-      isPlayingRef.current = false;
-      setIsPlaying(false);
+      setConfirmedPlaying(false);
     };
 
     element.addEventListener('timeupdate', updateTime);
@@ -215,10 +282,13 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       element.removeEventListener('pause', handlePause);
       element.removeEventListener('ended', handleEnded);
       element.removeEventListener('error', handleError);
+      requestTokenRef.current += 1;
+      pendingPlayTokenRef.current = null;
+      desiredPlayingRef.current = false;
       element.pause();
       audioRef.current = null;
     };
-  }, []);
+  }, [setConfirmedPlaying]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -267,20 +337,24 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       return;
     }
 
-    const shouldContinuePlaying = isPlayingRef.current;
-    audio.src = currentTrack.audioUrl;
-    setCurrentTime(0);
-    setDuration(0);
-    setError(null);
+    const loadedSource = loadedSourceRef.current;
+    if (
+      loadedSource?.index === currentIndex &&
+      loadedSource.url === currentTrack.audioUrl
+    ) {
+      return;
+    }
+
+    const shouldContinuePlaying = desiredPlayingRef.current;
+    const token = ++requestTokenRef.current;
+    pendingPlayTokenRef.current = shouldContinuePlaying ? token : null;
+    setConfirmedPlaying(false);
+    loadSource(audio, currentIndex);
 
     if (shouldContinuePlaying) {
-      void audio.play().catch(() => {
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-        setError(mediaErrorMessage);
-      });
+      void startPlayback(audio, token);
     }
-  }, [audio, currentTrack]);
+  }, [audio, currentIndex, currentTrack, loadSource, setConfirmedPlaying, startPlayback]);
 
   const value = useMemo<PlayerContextValue>(
     () => ({

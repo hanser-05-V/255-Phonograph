@@ -592,7 +592,7 @@ export function App() {
 ```css
 .home-page {
   min-height: 100vh;
-  padding: 0 40px 184px;
+  padding: 0 40px 208px;
 }
 .home-header,
 .home-page__content {

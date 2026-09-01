@@ -1,7 +1,7 @@
 import {act, cleanup, render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {PlayerProvider} from './PlayerProvider';
+import {PlayerProvider, type PlayerContextValue} from './PlayerProvider';
 import {usePlayer} from './usePlayer';
 import type {Track} from './types';
 
@@ -21,12 +21,13 @@ const tracks: Track[] = [
 ];
 
 function Harness() {
-  const {audio, currentTime, currentTrack, isPlaying, next, playTrack, previous, toggle} = usePlayer();
+  const {audio, currentTime, currentTrack, error, isPlaying, next, playTrack, previous, toggle} = usePlayer();
 
   return (
     <>
       <p data-testid="title">{currentTrack.title}</p>
       <p data-testid="playing">{String(isPlaying)}</p>
+      <p data-testid="error">{error ?? ''}</p>
       <p data-testid="current-time">{currentTime}</p>
       <p data-testid="audio-ready">{String(audio instanceof HTMLAudioElement)}</p>
       <p data-testid="audio-identity">{audio ? 'ready' : 'missing'}</p>
@@ -36,6 +37,40 @@ function Harness() {
       <button onClick={previous}>上一首</button>
     </>
   );
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return {promise, reject, resolve};
+}
+
+function renderWithPlayerCapture() {
+  let player: PlayerContextValue | null = null;
+
+  function PlayerCapture() {
+    player = usePlayer();
+    return null;
+  }
+
+  render(
+    <PlayerProvider tracks={tracks}>
+      <Harness />
+      <PlayerCapture />
+    </PlayerProvider>,
+  );
+
+  return () => {
+    if (!player) {
+      throw new Error('Expected the player context to be ready.');
+    }
+    return player;
+  };
 }
 
 describe('PlayerProvider', () => {
@@ -139,6 +174,94 @@ describe('PlayerProvider', () => {
     expect(screen.getByTestId('playing')).toHaveTextContent('true');
     expect(play).toHaveBeenCalledOnce();
     expect(controllers).toHaveLength(1);
+  });
+
+  it('confirms current-track playback only after play resolves and reports a current rejection', async () => {
+    const success = deferred<void>();
+    const failure = deferred<void>();
+    vi.spyOn(HTMLMediaElement.prototype, 'play')
+      .mockReturnValueOnce(success.promise)
+      .mockReturnValueOnce(failure.promise);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const getPlayer = renderWithPlayerCapture();
+
+    let successRequest!: Promise<void>;
+    act(() => {
+      successRequest = getPlayer().playTrack(0);
+    });
+
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
+    act(() => success.resolve());
+    await act(async () => successRequest);
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+
+    await act(async () => getPlayer().toggle());
+    let failureRequest!: Promise<void>;
+    act(() => {
+      failureRequest = getPlayer().playTrack(0);
+    });
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
+
+    act(() => failure.reject(new Error('decoder failed')));
+    await act(async () => failureRequest);
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
+    expect(screen.getByTestId('error')).toHaveTextContent('音频加载失败，请尝试其他歌曲。');
+  });
+
+  it('keeps a switched-track request pending until its play attempt resolves', async () => {
+    const switched = deferred<void>();
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockReturnValueOnce(switched.promise);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const getPlayer = renderWithPlayerCapture();
+    let completed = false;
+    let request!: Promise<void>;
+
+    act(() => {
+      request = getPlayer().playTrack(1).then(() => {
+        completed = true;
+      });
+    });
+
+    expect(screen.getByTestId('title')).toHaveTextContent('第二首');
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
+    expect(completed).toBe(false);
+
+    act(() => switched.resolve());
+    await act(async () => request);
+    expect(completed).toBe(true);
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+  });
+
+  it('ignores a superseded request rejection after a newer track starts playing', async () => {
+    const older = deferred<void>();
+    const newer = deferred<void>();
+    vi.spyOn(HTMLMediaElement.prototype, 'play')
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const getPlayer = renderWithPlayerCapture();
+    let olderRequest!: Promise<void>;
+    let newerRequest!: Promise<void>;
+
+    act(() => {
+      olderRequest = getPlayer().playTrack(0);
+      newerRequest = getPlayer().playTrack(1);
+    });
+
+    expect(screen.getByTestId('title')).toHaveTextContent('第二首');
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
+
+    act(() => newer.resolve());
+    await act(async () => newerRequest);
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+
+    act(() => older.reject(new DOMException('superseded', 'AbortError')));
+    await act(async () => olderRequest);
+    expect(screen.getByTestId('title')).toHaveTextContent('第二首');
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
   });
 
   it('rejects an empty queue with a developer-facing error', () => {

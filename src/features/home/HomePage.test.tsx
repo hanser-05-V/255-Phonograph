@@ -1,4 +1,4 @@
-import {cleanup, render, screen} from '@testing-library/react';
+import {act, cleanup, render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {MiniPlayer} from '../player/MiniPlayer';
@@ -12,6 +12,7 @@ import {HomePage} from './HomePage';
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -89,5 +90,29 @@ describe('HomePage', () => {
     expect(play).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('current-track')).toHaveTextContent(dailyTrack.title);
     expect(audioControllers).toHaveLength(1);
+  });
+
+  it('updates the daily track from the listening view date while playback is paused', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 1, 23, 59, 59));
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    renderHome();
+
+    const firstDate = '2026-09-01';
+    const nextDate = '2026-09-02';
+    const firstTrack = demoTracks[getDailyTrackIndex(firstDate, demoTracks.length)];
+    const nextTrack = demoTracks[getDailyTrackIndex(nextDate, demoTracks.length)];
+    expect(firstTrack).not.toBe(nextTrack);
+    expect(screen.getByRole('button', {
+      name: new RegExp(`每日憨曲.*${firstTrack.title}`),
+    })).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+    expect(screen.getByRole('button', {
+      name: new RegExp(`每日憨曲.*${nextTrack.title}`),
+    })).toBeInTheDocument();
   });
 });
