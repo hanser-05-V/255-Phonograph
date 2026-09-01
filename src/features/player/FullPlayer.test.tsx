@@ -27,7 +27,12 @@ describe('FullPlayer', () => {
       </PlayerProvider>,
     );
 
+    const positioner = screen.getByTestId('disc-positioner');
     const disc = screen.getByTestId('disc');
+    expect(positioner).toContainElement(disc);
+    expect(positioner).toHaveClass('disc-artwork__disc-positioner');
+    expect(disc).toHaveClass('disc');
+    expect(positioner).not.toHaveAttribute('data-playing');
     expect(disc).toHaveAttribute('data-playing', 'false');
     expect(screen.queryByTestId('intro-overlay')).not.toBeInTheDocument();
     expect(screen.getByRole('button', {name: '收起播放器'})).toBeInTheDocument();

@@ -266,13 +266,18 @@ button {
   min-height: 430px;
 }
 
-.disc {
+.disc-artwork__disc-positioner {
   position: absolute;
   top: 50%;
   right: 0;
   width: min(36vw, 540px);
   aspect-ratio: 1;
-  translate: 0 -50%;
+  transform: translateY(-50%);
+}
+
+.disc {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   box-shadow:
     0 38px 100px rgba(0, 0, 0, 0.52),
@@ -604,7 +609,7 @@ button {
     margin: 0 auto;
   }
 
-  .disc {
+  .disc-artwork__disc-positioner {
     width: min(76vw, 410px);
   }
 

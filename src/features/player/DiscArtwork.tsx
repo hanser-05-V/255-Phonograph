@@ -20,22 +20,24 @@ function CoverImage({coverUrl, title}: Pick<DiscArtworkProps, 'coverUrl' | 'titl
 export function DiscArtwork({coverUrl, isPlaying, title}: DiscArtworkProps) {
   return (
     <div className="disc-artwork">
-      <div
-        aria-hidden="true"
-        className="disc"
-        data-playing={String(isPlaying)}
-        data-testid="disc"
-      >
-        <div className="disc__surface">
-          {coverUrl ? (
-            <img alt="" className="disc__art" src={coverUrl} />
-          ) : (
-            <div className="disc__art disc__art--fallback" />
-          )}
-          <div className="disc__grooves" />
-          <div className="disc__reflection" />
+      <div className="disc-artwork__disc-positioner" data-testid="disc-positioner">
+        <div
+          aria-hidden="true"
+          className="disc"
+          data-playing={String(isPlaying)}
+          data-testid="disc"
+        >
+          <div className="disc__surface">
+            {coverUrl ? (
+              <img alt="" className="disc__art" src={coverUrl} />
+            ) : (
+              <div className="disc__art disc__art--fallback" />
+            )}
+            <div className="disc__grooves" />
+            <div className="disc__reflection" />
+          </div>
+          <div className="disc__center-ring" />
         </div>
-        <div className="disc__center-ring" />
       </div>
 
       <div className="disc-artwork__cover">
