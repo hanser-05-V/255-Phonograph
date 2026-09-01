@@ -40,7 +40,21 @@ type PlayerProviderProps = {
 
 const clampVolume = (value: number) => Math.min(1, Math.max(0, value));
 
-const mediaErrorMessage = (track: Track) => `无法播放“${track.title}”。`;
+const mediaErrorMessage = '音频加载失败，请尝试其他歌曲。';
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable ||
+    target.closest('[contenteditable="true"]') !== null
+  );
+}
 
 export function PlayerProvider({children, tracks}: PlayerProviderProps) {
   if (tracks.length === 0) {
@@ -58,12 +72,10 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const tracksRef = useRef(tracks);
-  const currentIndexRef = useRef(currentIndex);
   const isPlayingRef = useRef(isPlaying);
   const nextRef = useRef<() => void>(() => undefined);
 
   tracksRef.current = tracks;
-  currentIndexRef.current = currentIndex;
   isPlayingRef.current = isPlaying;
 
   const next = useCallback(() => {
@@ -97,7 +109,7 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
     } catch {
       isPlayingRef.current = false;
       setIsPlaying(false);
-      setError(mediaErrorMessage(tracksRef.current[currentIndexRef.current]));
+      setError(mediaErrorMessage);
     }
   }, []);
 
@@ -107,8 +119,8 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       return;
     }
 
-    const safeDuration = Number.isFinite(element.duration) ? element.duration : 0;
-    const nextTime = Math.min(Math.max(0, seconds), safeDuration || seconds);
+    const safeDuration = Number.isFinite(element.duration) && element.duration > 0 ? element.duration : 0;
+    const nextTime = safeDuration > 0 ? Math.min(Math.max(0, seconds), safeDuration) : Math.max(0, seconds);
     element.currentTime = nextTime;
     setCurrentTime(nextTime);
   }, []);
@@ -156,7 +168,7 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       nextRef.current();
     };
     const handleError = () => {
-      setError(mediaErrorMessage(tracksRef.current[currentIndexRef.current]));
+      setError(mediaErrorMessage);
       isPlayingRef.current = false;
       setIsPlaying(false);
     };
@@ -181,6 +193,46 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        isEditableTarget(event.target)
+      ) {
+        return;
+      }
+
+      if (!audioRef.current) {
+        return;
+      }
+
+      if (event.code === 'Space' || event.key === ' ') {
+        event.preventDefault();
+        void toggle();
+        return;
+      }
+
+      if (event.code === 'ArrowLeft' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        seek(audioRef.current.currentTime - 5);
+        return;
+      }
+
+      if (event.code === 'ArrowRight' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        seek(audioRef.current.currentTime + 5);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [seek, toggle]);
+
   const currentTrack = tracks[currentIndex];
 
   useEffect(() => {
@@ -198,7 +250,7 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       void audio.play().catch(() => {
         isPlayingRef.current = false;
         setIsPlaying(false);
-        setError(mediaErrorMessage(currentTrack));
+        setError(mediaErrorMessage);
       });
     }
   }, [audio, currentTrack]);

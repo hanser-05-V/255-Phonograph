@@ -12,8 +12,9 @@ export function LyricsPanel({currentTime, lines}: LyricsPanelProps) {
   const activeLineRef = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     activeLineRef.current?.scrollIntoView?.({
-      behavior: 'smooth',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
       block: 'center',
     });
   }, [activeIndex]);
