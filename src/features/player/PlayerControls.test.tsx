@@ -23,6 +23,7 @@ const mockPlayer: PlayerContextValue = {
   isExpanded: false,
   error: null,
   toggle: vi.fn().mockResolvedValue(undefined),
+  playTrack: vi.fn().mockResolvedValue(undefined),
   next: vi.fn(),
   previous: vi.fn(),
   seek: vi.fn(),

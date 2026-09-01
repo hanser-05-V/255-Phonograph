@@ -21,7 +21,7 @@ const tracks: Track[] = [
 ];
 
 function Harness() {
-  const {audio, currentTime, currentTrack, isPlaying, next, previous, toggle} = usePlayer();
+  const {audio, currentTime, currentTrack, isPlaying, next, playTrack, previous, toggle} = usePlayer();
 
   return (
     <>
@@ -29,7 +29,9 @@ function Harness() {
       <p data-testid="playing">{String(isPlaying)}</p>
       <p data-testid="current-time">{currentTime}</p>
       <p data-testid="audio-ready">{String(audio instanceof HTMLAudioElement)}</p>
+      <p data-testid="audio-identity">{audio ? 'ready' : 'missing'}</p>
       <button onClick={() => void toggle()}>播放</button>
+      <button onClick={() => void playTrack(1)}>播放第二首</button>
       <button onClick={next}>下一首</button>
       <button onClick={previous}>上一首</button>
     </>
@@ -111,6 +113,32 @@ describe('PlayerProvider', () => {
 
     expect(screen.getByTestId('title')).toHaveTextContent('第二首');
     expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it('plays a requested track through the existing shared audio element', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    const controllers: HTMLAudioElement[] = [];
+
+    function AudioReader() {
+      const {audio} = usePlayer();
+      if (audio && !controllers.includes(audio)) controllers.push(audio);
+      return null;
+    }
+
+    render(
+      <PlayerProvider tracks={tracks}>
+        <Harness />
+        <AudioReader />
+      </PlayerProvider>,
+    );
+
+    await user.click(screen.getByRole('button', {name: '播放第二首'}));
+    expect(screen.getByTestId('title')).toHaveTextContent('第二首');
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+    expect(play).toHaveBeenCalledOnce();
+    expect(controllers).toHaveLength(1);
   });
 
   it('rejects an empty queue with a developer-facing error', () => {

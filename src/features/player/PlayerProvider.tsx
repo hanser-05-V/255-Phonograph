@@ -23,6 +23,7 @@ export type PlayerContextValue = {
   isExpanded: boolean;
   error: string | null;
   toggle: () => Promise<void>;
+  playTrack: (index: number) => Promise<void>;
   next: () => void;
   previous: () => void;
   seek: (seconds: number) => void;
@@ -72,10 +73,12 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const tracksRef = useRef(tracks);
+  const currentIndexRef = useRef(currentIndex);
   const isPlayingRef = useRef(isPlaying);
   const nextRef = useRef<() => void>(() => undefined);
 
   tracksRef.current = tracks;
+  currentIndexRef.current = currentIndex;
   isPlayingRef.current = isPlaying;
 
   const next = useCallback(() => {
@@ -106,6 +109,30 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       isPlayingRef.current = true;
       setIsPlaying(true);
       setError(null);
+    } catch {
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      setError(mediaErrorMessage);
+    }
+  }, []);
+
+  const playTrack = useCallback(async (index: number) => {
+    const element = audioRef.current;
+    if (!element || !Number.isInteger(index) || index < 0 || index >= tracksRef.current.length) {
+      return;
+    }
+
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+    setError(null);
+
+    if (index !== currentIndexRef.current) {
+      setCurrentIndex(index);
+      return;
+    }
+
+    try {
+      await element.play();
     } catch {
       isPlayingRef.current = false;
       setIsPlaying(false);
@@ -269,6 +296,7 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       isExpanded,
       error,
       toggle,
+      playTrack,
       next,
       previous,
       seek,
@@ -287,6 +315,7 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       isMuted,
       isPlaying,
       next,
+      playTrack,
       previous,
       seek,
       setVolume,
