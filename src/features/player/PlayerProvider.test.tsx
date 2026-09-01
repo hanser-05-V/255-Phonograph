@@ -123,7 +123,10 @@ describe('PlayerProvider', () => {
   });
 
   it('automatically starts the next track after the pause and ended lifecycle', async () => {
-    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    const continuation = deferred<void>();
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play')
+      .mockResolvedValueOnce(undefined)
+      .mockReturnValueOnce(continuation.promise);
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
     const user = userEvent.setup();
     let controller: HTMLAudioElement | null = null;
@@ -140,14 +143,46 @@ describe('PlayerProvider', () => {
 
     await user.click(screen.getByRole('button', {name: '播放'}));
     expect(play).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
 
-    act(() => {
-      controller?.dispatchEvent(new Event('pause'));
-      controller?.dispatchEvent(new Event('ended'));
-    });
+    act(() => controller?.dispatchEvent(new Event('pause')));
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
 
+    act(() => controller?.dispatchEvent(new Event('ended')));
     expect(screen.getByTestId('title')).toHaveTextContent('第二首');
     expect(play).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
+
+    await act(async () => {
+      continuation.resolve();
+      await continuation.promise;
+    });
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+  });
+
+  it('reports a standalone native pause as confirmed paused state', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    let controller: HTMLAudioElement | null = null;
+
+    function AudioReader() {
+      controller = usePlayer().audio;
+      return null;
+    }
+
+    render(
+      <PlayerProvider tracks={tracks}>
+        <Harness />
+        <AudioReader />
+      </PlayerProvider>,
+    );
+
+    await user.click(screen.getByRole('button', {name: '播放'}));
+    expect(screen.getByTestId('playing')).toHaveTextContent('true');
+
+    act(() => controller?.dispatchEvent(new Event('pause')));
+    expect(screen.getByTestId('playing')).toHaveTextContent('false');
   });
 
   it('plays a requested track through the existing shared audio element', async () => {

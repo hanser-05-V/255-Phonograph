@@ -248,10 +248,6 @@ export function PlayerProvider({children, tracks}: PlayerProviderProps) {
       setError(null);
     };
     const handlePause = () => {
-      if (desiredPlayingRef.current) {
-        return;
-      }
-
       setConfirmedPlaying(false);
     };
     const handleEnded = () => {
