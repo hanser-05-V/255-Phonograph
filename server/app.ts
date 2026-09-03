@@ -6,12 +6,14 @@ import Fastify, {
   type FastifyReply,
   type FastifyRequest,
 } from 'fastify';
+import type {DatabaseSync} from 'node:sqlite';
 
 import type {ApiErrorBody, HealthResponse} from '../shared/contracts.js';
 import type {AppConfig} from './config.js';
 
 export type BuildAppDependencies = {
   config: AppConfig;
+  database?: DatabaseSync;
   frontendDir?: string;
 };
 
@@ -52,8 +54,15 @@ export async function buildApp(
   dependencies: BuildAppDependencies,
 ): Promise<FastifyInstance> {
   const app = Fastify();
+  const {database} = dependencies;
 
   await app.register(fastifyCookie);
+
+  if (database) {
+    app.addHook('onClose', () => {
+      database.close();
+    });
+  }
 
   app.get<{Reply: HealthResponse}>('/api/health', async () => ({ok: true}));
 
