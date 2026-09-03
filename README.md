@@ -4,21 +4,32 @@
 
 ## 本地运行
 
-需要 Node.js 和 npm。进入项目目录后运行：
+需要 Node.js 24 和 npm。进入项目目录后运行：
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Vite 会在终端中显示本地访问地址。完成修改后可运行：
+`npm run dev` 会同时启动 Vite 网页和 Fastify 本地服务；Vite 会在终端中显示访问地址，并把 `/api` 请求代理到 `127.0.0.1:3001`。
+
+本地正式运行前先构建双端，再启动服务：
+
+```powershell
+npm run build
+npm start
+```
+
+服务端默认把数据库和媒体目录放在项目之外：Windows 使用 `%LOCALAPPDATA%\255-phonograph`，其他环境使用用户目录下的 `.255-phonograph`。需要测试隔离时可设置 `PHONOGRAPH_DATA_DIR`；可公开的配置键见 `.env.example`。
+
+完成修改后可运行：
 
 ```powershell
 npm run test:run
-npm run build
+npm run typecheck
 ```
 
-`npm run test:run` 执行一次完整测试，`npm run build` 进行 TypeScript 检查并将生产构建输出到 `dist/`。
+`npm run test:run` 依次执行客户端与服务端测试，`npm run typecheck` 检查双端 TypeScript。`npm run build` 会先检查类型，再将网页输出到 `dist/`、服务端输出到 `server-dist/`。
 
 ## 曲目数据
 

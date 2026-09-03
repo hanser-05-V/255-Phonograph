@@ -3,8 +3,25 @@ node_modules/
 
 # Build output
 dist/
+server-dist/
 build/
 .next/
+
+# Local phonograph runtime data
+data/
+phonograph-data/
+.255-phonograph/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.mp3
+*.m4a
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.webp
 
 # Local configuration
 .env
