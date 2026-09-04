@@ -1,12 +1,23 @@
 import type {
   AdminAuthenticatedResponse,
   AdminAuthStatusResponse,
+  TaxonomyItem,
 } from '../../shared/contracts';
 import {requestJson} from './http';
 
-function jsonPost(body?: unknown, signal?: AbortSignal): RequestInit {
+type TaxonomyNameInput = {name: string};
+
+export type AdminSettingsResponse = {
+  dataDirectoryDisplay: string;
+};
+
+function jsonMutation(
+  method: 'POST' | 'PATCH' | 'DELETE',
+  body?: unknown,
+  signal?: AbortSignal,
+): RequestInit {
   return {
-    method: 'POST',
+    method,
     credentials: 'same-origin',
     ...(body === undefined ? {} : {
       headers: {'Content-Type': 'application/json'},
@@ -16,12 +27,20 @@ function jsonPost(body?: unknown, signal?: AbortSignal): RequestInit {
   };
 }
 
+function jsonPost(body?: unknown, signal?: AbortSignal): RequestInit {
+  return jsonMutation('POST', body, signal);
+}
+
+function authenticatedGet(signal?: AbortSignal): RequestInit {
+  return {
+    credentials: 'same-origin',
+    ...(signal ? {signal} : {}),
+  };
+}
+
 export const adminApi = {
   getAuthStatus(signal?: AbortSignal): Promise<AdminAuthStatusResponse> {
-    return requestJson('/api/admin/auth/status', {
-      credentials: 'same-origin',
-      ...(signal ? {signal} : {}),
-    });
+    return requestJson('/api/admin/auth/status', authenticatedGet(signal));
   },
 
   setup(password: string, signal?: AbortSignal): Promise<AdminAuthenticatedResponse> {
@@ -51,5 +70,67 @@ export const adminApi = {
       '/api/admin/auth/password',
       jsonPost({currentPassword, newPassword}, signal),
     );
+  },
+
+  listCategories(signal?: AbortSignal): Promise<TaxonomyItem[]> {
+    return requestJson('/api/admin/categories', authenticatedGet(signal));
+  },
+
+  createCategory(
+    input: TaxonomyNameInput,
+    signal?: AbortSignal,
+  ): Promise<TaxonomyItem> {
+    return requestJson(
+      '/api/admin/categories',
+      jsonMutation('POST', input, signal),
+    );
+  },
+
+  renameCategory(
+    id: string,
+    input: TaxonomyNameInput,
+    signal?: AbortSignal,
+  ): Promise<TaxonomyItem> {
+    return requestJson(
+      `/api/admin/categories/${encodeURIComponent(id)}`,
+      jsonMutation('PATCH', input, signal),
+    );
+  },
+
+  deleteCategory(id: string, signal?: AbortSignal): Promise<void> {
+    return requestJson(
+      `/api/admin/categories/${encodeURIComponent(id)}`,
+      jsonMutation('DELETE', undefined, signal),
+    );
+  },
+
+  listTags(signal?: AbortSignal): Promise<TaxonomyItem[]> {
+    return requestJson('/api/admin/tags', authenticatedGet(signal));
+  },
+
+  createTag(input: TaxonomyNameInput, signal?: AbortSignal): Promise<TaxonomyItem> {
+    return requestJson('/api/admin/tags', jsonMutation('POST', input, signal));
+  },
+
+  renameTag(
+    id: string,
+    input: TaxonomyNameInput,
+    signal?: AbortSignal,
+  ): Promise<TaxonomyItem> {
+    return requestJson(
+      `/api/admin/tags/${encodeURIComponent(id)}`,
+      jsonMutation('PATCH', input, signal),
+    );
+  },
+
+  deleteTag(id: string, signal?: AbortSignal): Promise<void> {
+    return requestJson(
+      `/api/admin/tags/${encodeURIComponent(id)}`,
+      jsonMutation('DELETE', undefined, signal),
+    );
+  },
+
+  getSettings(signal?: AbortSignal): Promise<AdminSettingsResponse> {
+    return requestJson('/api/admin/settings', authenticatedGet(signal));
   },
 };

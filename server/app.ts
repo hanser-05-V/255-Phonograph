@@ -16,6 +16,7 @@ import {UploadService} from './media/upload-service.js';
 import {CleanupService} from './media/cleanup-service.js';
 import {registerAdminAuthRoutes} from './routes/admin-auth.js';
 import {registerAdminSongRoutes} from './routes/admin-songs.js';
+import {registerAdminSettingsRoutes} from './routes/admin-settings.js';
 import {registerAdminTaxonomyRoutes} from './routes/admin-taxonomy.js';
 import {registerAdminUploadRoutes} from './routes/admin-uploads.js';
 import {registerMediaRoutes} from './routes/media.js';
@@ -152,6 +153,12 @@ export async function buildApp(
     app.decorate('adminSessionCookieName', dependencies.config.sessionCookieName);
     app.decorate('adminCookieSecure', dependencies.secureCookies === true);
     await app.register(registerAdminAuthRoutes);
+    await app.register(
+      async (settingsRoutes) => registerAdminSettingsRoutes(
+        settingsRoutes,
+        dependencies.config.dataDir,
+      ),
+    );
     const taxonomyService = new TaxonomyService(database);
     await app.register(
       async (taxonomyRoutes) =>

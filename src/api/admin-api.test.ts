@@ -72,4 +72,72 @@ describe('adminApi', () => {
       signal: controller.signal,
     });
   });
+
+  it('uses named taxonomy methods and reads the protected settings display', async () => {
+    const item = {
+      id: 'cat-1',
+      name: '现场',
+      createdAt: '2026-09-03T00:00:00.000Z',
+      updatedAt: '2026-09-03T00:00:00.000Z',
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse([item]))
+      .mockResolvedValueOnce(jsonResponse(item, 201))
+      .mockResolvedValueOnce(jsonResponse(item))
+      .mockResolvedValueOnce(new Response(null, {status: 204}))
+      .mockResolvedValueOnce(jsonResponse([item]))
+      .mockResolvedValueOnce(jsonResponse(item, 201))
+      .mockResolvedValueOnce(jsonResponse(item))
+      .mockResolvedValueOnce(new Response(null, {status: 204}))
+      .mockResolvedValueOnce(jsonResponse({dataDirectoryDisplay: 'D:\\music-data'}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await adminApi.listCategories();
+    await adminApi.createCategory({name: '现场'});
+    await adminApi.renameCategory('cat-1', {name: '音乐会'});
+    await adminApi.deleteCategory('cat-1');
+    await adminApi.listTags();
+    await adminApi.createTag({name: '温柔'});
+    await adminApi.renameTag('tag-1', {name: '治愈'});
+    await adminApi.deleteTag('tag-1');
+    await adminApi.getSettings();
+
+    expect(fetchMock.mock.calls).toEqual([
+      ['/api/admin/categories', {credentials: 'same-origin'}],
+      ['/api/admin/categories', {
+        body: JSON.stringify({name: '现场'}),
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        method: 'POST',
+      }],
+      ['/api/admin/categories/cat-1', {
+        body: JSON.stringify({name: '音乐会'}),
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        method: 'PATCH',
+      }],
+      ['/api/admin/categories/cat-1', {
+        credentials: 'same-origin',
+        method: 'DELETE',
+      }],
+      ['/api/admin/tags', {credentials: 'same-origin'}],
+      ['/api/admin/tags', {
+        body: JSON.stringify({name: '温柔'}),
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        method: 'POST',
+      }],
+      ['/api/admin/tags/tag-1', {
+        body: JSON.stringify({name: '治愈'}),
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        method: 'PATCH',
+      }],
+      ['/api/admin/tags/tag-1', {
+        credentials: 'same-origin',
+        method: 'DELETE',
+      }],
+      ['/api/admin/settings', {credentials: 'same-origin'}],
+    ]);
+  });
 });

@@ -1,6 +1,8 @@
 import {Navigate, Route, Routes} from 'react-router-dom';
 import {AdminAuthGate} from './AdminAuthGate';
 import {AdminLayout} from './AdminLayout';
+import {SettingsPage} from './SettingsPage';
+import {TaxonomyPage} from './TaxonomyPage';
 import '../../styles/admin.css';
 
 type AdminPlaceholderProps = {
@@ -42,7 +44,7 @@ export function AdminApp() {
               />
               <Route
                 path="taxonomy"
-                element={<AdminPlaceholder title="分类与标签" description="分类与标签管理将在下一阶段接入。" />}
+                element={<TaxonomyPage />}
               />
               <Route
                 path="trash"
@@ -50,7 +52,7 @@ export function AdminApp() {
               />
               <Route
                 path="settings"
-                element={<AdminPlaceholder title="设置" description="管理密码设置将在下一阶段接入。" />}
+                element={<SettingsPage />}
               />
             </Route>
             <Route path="*" element={<Navigate replace to="/admin" />} />
