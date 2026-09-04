@@ -1,6 +1,9 @@
 import type {
+  AdminSong,
   AdminAuthenticatedResponse,
   AdminAuthStatusResponse,
+  SongDraftInput,
+  SongStatus,
   TaxonomyItem,
 } from '../../shared/contracts';
 import {requestJson} from './http';
@@ -12,7 +15,7 @@ export type AdminSettingsResponse = {
 };
 
 function jsonMutation(
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body?: unknown,
   signal?: AbortSignal,
 ): RequestInit {
@@ -132,5 +135,74 @@ export const adminApi = {
 
   getSettings(signal?: AbortSignal): Promise<AdminSettingsResponse> {
     return requestJson('/api/admin/settings', authenticatedGet(signal));
+  },
+
+  listSongs(status?: SongStatus, signal?: AbortSignal): Promise<AdminSong[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return requestJson(`/api/admin/songs${query}`, authenticatedGet(signal));
+  },
+
+  getSong(id: string, signal?: AbortSignal): Promise<AdminSong> {
+    return requestJson(
+      `/api/admin/songs/${encodeURIComponent(id)}`,
+      authenticatedGet(signal),
+    );
+  },
+
+  saveSong(
+    id: string | undefined,
+    input: SongDraftInput,
+    signal?: AbortSignal,
+  ): Promise<AdminSong> {
+    return requestJson(
+      id ? `/api/admin/songs/${encodeURIComponent(id)}` : '/api/admin/songs',
+      jsonMutation(id ? 'PUT' : 'POST', input, signal),
+    );
+  },
+
+  publishSong(id: string, signal?: AbortSignal): Promise<AdminSong> {
+    return requestJson(
+      `/api/admin/songs/${encodeURIComponent(id)}/publish`,
+      jsonPost(undefined, signal),
+    );
+  },
+
+  unpublishSong(id: string, signal?: AbortSignal): Promise<AdminSong> {
+    return requestJson(
+      `/api/admin/songs/${encodeURIComponent(id)}/unpublish`,
+      jsonPost(undefined, signal),
+    );
+  },
+
+  trashSong(id: string, signal?: AbortSignal): Promise<AdminSong> {
+    return requestJson(
+      `/api/admin/songs/${encodeURIComponent(id)}/trash`,
+      jsonPost(undefined, signal),
+    );
+  },
+
+  restoreSong(id: string, signal?: AbortSignal): Promise<AdminSong> {
+    return requestJson(
+      `/api/admin/songs/${encodeURIComponent(id)}/restore`,
+      jsonPost(undefined, signal),
+    );
+  },
+
+  permanentlyDeleteSong(
+    id: string,
+    confirmSongId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return requestJson(
+      `/api/admin/songs/${encodeURIComponent(id)}`,
+      jsonMutation('DELETE', {confirmSongId}, signal),
+    );
+  },
+
+  cancelUpload(uploadId: string, signal?: AbortSignal): Promise<void> {
+    return requestJson(
+      `/api/admin/uploads/${encodeURIComponent(uploadId)}`,
+      jsonMutation('DELETE', undefined, signal),
+    );
   },
 };

@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import type {SongDraftInput} from '../../shared/contracts';
 import {adminApi} from './admin-api';
 
 function jsonResponse(body: unknown, status = 200) {
@@ -138,6 +139,54 @@ describe('adminApi', () => {
         method: 'DELETE',
       }],
       ['/api/admin/settings', {credentials: 'same-origin'}],
+    ]);
+  });
+
+  it('maps song reads, saves, lifecycle actions, deletion, and upload cancellation', async () => {
+    const song = {id: 'song 255', status: 'draft'};
+    const input: SongDraftInput = {
+      title: '初光', artist: 'Hanser', lyricsText: '', categoryId: null,
+      tagIds: [], versionNote: '', performanceDate: '', sourceUrl: '',
+      isFeatured: false, isLiveCover: false, confirmDuplicate: false,
+      confirmAudioReplacement: false,
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse([song]))
+      .mockResolvedValueOnce(jsonResponse(song))
+      .mockResolvedValueOnce(jsonResponse(song, 201))
+      .mockResolvedValueOnce(jsonResponse(song))
+      .mockResolvedValueOnce(jsonResponse(song))
+      .mockResolvedValueOnce(jsonResponse(song))
+      .mockResolvedValueOnce(jsonResponse(song))
+      .mockResolvedValueOnce(jsonResponse(song))
+      .mockResolvedValueOnce(new Response(null, {status: 204}))
+      .mockResolvedValueOnce(new Response(null, {status: 204}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await adminApi.listSongs('draft');
+    await adminApi.getSong('song 255');
+    await adminApi.saveSong(undefined, input);
+    await adminApi.saveSong('song 255', input);
+    await adminApi.publishSong('song 255');
+    await adminApi.unpublishSong('song 255');
+    await adminApi.trashSong('song 255');
+    await adminApi.restoreSong('song 255');
+    await adminApi.permanentlyDeleteSong('song 255', 'song 255');
+    await adminApi.cancelUpload('upload 1');
+
+    expect(fetchMock.mock.calls).toEqual([
+      ['/api/admin/songs?status=draft', {credentials: 'same-origin'}],
+      ['/api/admin/songs/song%20255', {credentials: 'same-origin'}],
+      ['/api/admin/songs', expect.objectContaining({method: 'POST', body: JSON.stringify(input)})],
+      ['/api/admin/songs/song%20255', expect.objectContaining({method: 'PUT', body: JSON.stringify(input)})],
+      ['/api/admin/songs/song%20255/publish', expect.objectContaining({method: 'POST'})],
+      ['/api/admin/songs/song%20255/unpublish', expect.objectContaining({method: 'POST'})],
+      ['/api/admin/songs/song%20255/trash', expect.objectContaining({method: 'POST'})],
+      ['/api/admin/songs/song%20255/restore', expect.objectContaining({method: 'POST'})],
+      ['/api/admin/songs/song%20255', expect.objectContaining({
+        method: 'DELETE', body: JSON.stringify({confirmSongId: 'song 255'}),
+      })],
+      ['/api/admin/uploads/upload%201', {credentials: 'same-origin', method: 'DELETE'}],
     ]);
   });
 });

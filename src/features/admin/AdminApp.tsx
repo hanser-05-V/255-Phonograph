@@ -3,21 +3,10 @@ import {AdminAuthGate} from './AdminAuthGate';
 import {AdminLayout} from './AdminLayout';
 import {SettingsPage} from './SettingsPage';
 import {TaxonomyPage} from './TaxonomyPage';
+import {AdminSongListPage} from './AdminSongListPage';
+import {SongForm} from './SongForm';
+import {TrashPage} from './TrashPage';
 import '../../styles/admin.css';
-
-type AdminPlaceholderProps = {
-  title: string;
-  description: string;
-};
-
-function AdminPlaceholder({title, description}: AdminPlaceholderProps) {
-  return (
-    <div className="admin-placeholder">
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </div>
-  );
-}
 
 export function AdminApp() {
   return (
@@ -32,15 +21,15 @@ export function AdminApp() {
             <Route path="/admin" element={<AdminLayout onLogout={logout} />}>
               <Route
                 index
-                element={<AdminPlaceholder title="歌曲管理" description="歌曲列表将在下一阶段接入。" />}
+                element={<AdminSongListPage />}
               />
               <Route
                 path="songs/new"
-                element={<AdminPlaceholder title="新建歌曲" description="歌曲编辑器将在下一阶段接入。" />}
+                element={<SongForm />}
               />
               <Route
                 path="songs/:songId"
-                element={<AdminPlaceholder title="编辑歌曲" description="歌曲编辑器将在下一阶段接入。" />}
+                element={<SongForm />}
               />
               <Route
                 path="taxonomy"
@@ -48,7 +37,7 @@ export function AdminApp() {
               />
               <Route
                 path="trash"
-                element={<AdminPlaceholder title="回收站" description="回收站管理将在下一阶段接入。" />}
+                element={<TrashPage />}
               />
               <Route
                 path="settings"

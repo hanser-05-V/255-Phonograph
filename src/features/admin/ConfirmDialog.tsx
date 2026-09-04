@@ -1,7 +1,10 @@
-import {useLayoutEffect, useRef, type KeyboardEvent} from 'react';
+import {useLayoutEffect, useRef, type KeyboardEvent, type ReactNode} from 'react';
 
 type ConfirmDialogProps = {
   busy?: boolean;
+  busyLabel?: string;
+  children?: ReactNode;
+  confirmDisabled?: boolean;
   confirmLabel: string;
   description: string;
   onCancel: () => void;
@@ -11,14 +14,15 @@ type ConfirmDialogProps = {
 
 export function ConfirmDialog({
   busy = false,
+  busyLabel = '正在处理…',
+  children,
+  confirmDisabled = false,
   confirmLabel,
   description,
   onCancel,
   onConfirm,
   title,
 }: ConfirmDialogProps) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-  const confirmRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = 'admin-confirm-title';
@@ -36,7 +40,9 @@ export function ConfirmDialog({
         dialog.setAttribute('open', '');
       }
     }
-    cancelRef.current?.focus();
+    dialog?.querySelector<HTMLElement>(
+      'input:not([disabled]), button:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]',
+    )?.focus();
 
     return () => {
       if (dialog?.open && typeof dialog.close === 'function') dialog.close();
@@ -55,12 +61,17 @@ export function ConfirmDialog({
       return;
     }
 
-    if (event.shiftKey && document.activeElement === cancelRef.current) {
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+      'input:not([disabled]), button:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]',
+    ));
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
-      confirmRef.current?.focus();
-    } else if (!event.shiftKey && document.activeElement === confirmRef.current) {
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
       event.preventDefault();
-      cancelRef.current?.focus();
+      first?.focus();
     }
   }
 
@@ -79,12 +90,17 @@ export function ConfirmDialog({
     >
       <h2 id={titleId}>{title}</h2>
       <p id={descriptionId}>{description}</p>
+      {children}
       <div className="admin-confirm-dialog__actions">
-        <button disabled={busy} onClick={onCancel} ref={cancelRef} type="button">
+        <button disabled={busy} onClick={onCancel} type="button">
           取消
         </button>
-        <button disabled={busy} onClick={onConfirm} ref={confirmRef} type="button">
-          {busy ? '正在删除…' : confirmLabel}
+        <button
+          disabled={busy || confirmDisabled}
+          onClick={onConfirm}
+          type="button"
+        >
+          {busy ? busyLabel : confirmLabel}
         </button>
       </div>
     </dialog>
