@@ -1,10 +1,38 @@
 import {cleanup, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import type {LibraryResponse} from '../../../shared/contracts';
 import {App} from '../../App';
 import {demoTracks} from './demo-tracks';
 import {FullPlayer} from './FullPlayer';
 import {PlayerProvider} from './PlayerProvider';
+
+const library: LibraryResponse = {
+  songs: demoTracks.map((track, index) => ({
+    ...track,
+    durationSeconds: 120,
+    category: null,
+    tags: [],
+    isFeatured: true,
+    isLiveCover: false,
+    publishedAt: `2026-09-0${3 - index}T12:00:00.000Z`,
+  })),
+  categories: [],
+  tags: [],
+  sections: {
+    recent: demoTracks.map(({id}) => id),
+    featured: demoTracks.map(({id}) => id),
+    liveCovers: [],
+  },
+};
+
+function mockLibrary() {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(library), {
+    status: 200,
+    headers: {'Content-Type': 'application/json'},
+  })));
+}
 
 beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
@@ -54,10 +82,11 @@ describe('FullPlayer', () => {
   });
 
   it('shares expansion state with the persistent mini player', async () => {
+    mockLibrary();
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
-    const miniPlayer = screen.getByRole('region', {name: '迷你播放器'});
+    const miniPlayer = await screen.findByRole('region', {name: '迷你播放器'});
     await user.click(within(miniPlayer).getByText('初光'));
     expect(screen.getByRole('region', {name: '沉浸式播放器'})).toBeInTheDocument();
     expect(miniPlayer).toBeInTheDocument();

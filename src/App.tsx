@@ -1,27 +1,20 @@
-import {HomePage} from './features/home/HomePage';
-import {MiniPlayer} from './features/player/MiniPlayer';
-import {demoTracks} from './features/player/demo-tracks';
-import {FullPlayer} from './features/player/FullPlayer';
-import {PlayerProvider} from './features/player/PlayerProvider';
-import {usePlayer} from './features/player/usePlayer';
+import {Route, Routes} from 'react-router-dom';
+import {LibraryProvider} from './features/library/LibraryProvider';
+import {PublicApp} from './features/library/PublicApp';
 import './styles/global.css';
-
-function PlayerSurface() {
-  const {isExpanded} = usePlayer();
-
-  return (
-    <>
-      <HomePage />
-      {isExpanded ? <FullPlayer /> : null}
-      <MiniPlayer />
-    </>
-  );
-}
 
 export function App() {
   return (
-    <PlayerProvider tracks={demoTracks}>
-      <PlayerSurface />
-    </PlayerProvider>
+    <Routes>
+      <Route path="/admin/*" element={<main aria-label="管理后台">管理后台</main>} />
+      <Route
+        path="/*"
+        element={(
+          <LibraryProvider>
+            <PublicApp />
+          </LibraryProvider>
+        )}
+      />
+    </Routes>
   );
 }

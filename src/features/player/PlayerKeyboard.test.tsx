@@ -1,5 +1,7 @@
-import {act, cleanup, fireEvent, render, screen} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import type {LibraryResponse} from '../../../shared/contracts';
 import {App} from '../../App';
 import {PlayerProvider} from './PlayerProvider';
 import {usePlayer} from './usePlayer';
@@ -13,6 +15,21 @@ const tracks: Track[] = [
     audioUrl: 'data:audio/wav;base64,UklGRg==',
   },
 ];
+
+const library: LibraryResponse = {
+  songs: tracks.map((track) => ({
+    ...track,
+    durationSeconds: 120,
+    category: null,
+    tags: [],
+    isFeatured: false,
+    isLiveCover: false,
+    publishedAt: '2026-09-03T12:00:00.000Z',
+  })),
+  categories: [],
+  tags: [],
+  sections: {recent: ['first'], featured: [], liveCovers: []},
+};
 
 function Harness() {
   const {audio, currentTime} = usePlayer();
@@ -35,6 +52,7 @@ describe('Player keyboard and error behavior', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('maps global keys without stealing input interaction', () => {
@@ -89,8 +107,12 @@ describe('Player keyboard and error behavior', () => {
     expect(screen.getByTestId('time')).toHaveTextContent('0');
   });
 
-  it('announces audio errors in the collapsed player without removing transport', () => {
+  it('announces audio errors in the collapsed player without removing transport', async () => {
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(library), {
+      status: 200,
+      headers: {'Content-Type': 'application/json'},
+    })));
     let controller: HTMLAudioElement | null = null;
     const NativeAudio = window.Audio;
     vi.spyOn(window, 'Audio').mockImplementation(() => {
@@ -98,14 +120,16 @@ describe('Player keyboard and error behavior', () => {
       return controller;
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
+    await screen.findByRole('region', {name: '迷你播放器'});
 
     const getController = () => controller;
     const audioController = getController();
     if (!audioController) {
       throw new Error('Expected the shared audio controller to be ready.');
     }
-    act(() => audioController.dispatchEvent(new Event('error')));
+    await waitFor(() => expect(audioController.src).toBe(tracks[0].audioUrl));
+    await act(async () => audioController.dispatchEvent(new Event('error')));
 
     expect(screen.getByRole('status', {name: '音频状态'})).toHaveTextContent(
       '音频加载失败，请尝试其他歌曲。',
