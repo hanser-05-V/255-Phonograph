@@ -13,10 +13,15 @@ import {AdminAuthService} from './auth/admin-auth-service.js';
 import type {AppConfig} from './config.js';
 import {UploadValidationError} from './media/media-validation.js';
 import {UploadService} from './media/upload-service.js';
+import {CleanupService} from './media/cleanup-service.js';
 import {registerAdminAuthRoutes} from './routes/admin-auth.js';
+import {registerAdminSongRoutes} from './routes/admin-songs.js';
 import {registerAdminTaxonomyRoutes} from './routes/admin-taxonomy.js';
 import {registerAdminUploadRoutes} from './routes/admin-uploads.js';
 import {LocalMediaStore} from './storage/local-media-store.js';
+import type {MediaStore} from './storage/media-store.js';
+import {SongError, SongService} from './songs/song-service.js';
+import {SongValidationError} from './songs/song-validation.js';
 import {
   TaxonomyError,
   TaxonomyService,
@@ -27,6 +32,7 @@ export type BuildAppDependencies = {
   database?: DatabaseSync;
   frontendDir?: string;
   secureCookies?: boolean;
+  mediaStore?: MediaStore;
 };
 
 function notFoundBody(): ApiErrorBody {
@@ -55,6 +61,19 @@ function registerErrorHandler(app: FastifyInstance): void {
     if (error instanceof TaxonomyError) {
       const body: ApiErrorBody = {
         error: {code: error.code, message: error.message},
+      };
+      return reply.status(error.statusCode).send(body);
+    }
+
+    if (error instanceof SongValidationError || error instanceof SongError) {
+      const body: ApiErrorBody = {
+        error: {
+          code: error.code,
+          message: error.message,
+          ...(error instanceof SongError && error.details !== undefined
+            ? {details: error.details}
+            : {}),
+        },
       };
       return reply.status(error.statusCode).send(body);
     }
@@ -125,6 +144,8 @@ export async function buildApp(
   await app.register(fastifyCookie);
 
   if (database) {
+    const mediaStore = dependencies.mediaStore ??
+      new LocalMediaStore(dependencies.config.mediaDir);
     app.decorate('adminAuthService', new AdminAuthService(database));
     app.decorate('adminSessionCookieName', dependencies.config.sessionCookieName);
     app.decorate('adminCookieSecure', dependencies.secureCookies === true);
@@ -134,9 +155,11 @@ export async function buildApp(
       async (taxonomyRoutes) =>
         registerAdminTaxonomyRoutes(taxonomyRoutes, taxonomyService),
     );
+    const cleanupService = new CleanupService(database, mediaStore);
+    await cleanupService.drain();
     const uploadService = new UploadService(
       database,
-      new LocalMediaStore(dependencies.config.mediaDir),
+      mediaStore,
       dependencies.config.mediaDir,
     );
     await uploadService.cleanupStalePendingUploads();
@@ -146,6 +169,10 @@ export async function buildApp(
           uploadRoutes,
           uploadService,
         ),
+    );
+    const songService = new SongService(database, mediaStore);
+    await app.register(
+      async (songRoutes) => registerAdminSongRoutes(songRoutes, songService),
     );
 
     app.addHook('onClose', () => {

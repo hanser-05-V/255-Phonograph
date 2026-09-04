@@ -9,6 +9,54 @@ export type TaxonomyItem = {
   updatedAt: string;
 };
 
+export type SongStatus = 'draft' | 'published' | 'unlisted' | 'trashed';
+
+export type AdminMediaSummary = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  byteSize: number;
+};
+
+export type AdminSong = {
+  id: string;
+  title: string;
+  artist: string;
+  status: SongStatus;
+  statusBeforeTrash: 'draft' | 'unlisted' | null;
+  durationSeconds: number | null;
+  audio: AdminMediaSummary | null;
+  cover: AdminMediaSummary | null;
+  lyricsText: string;
+  categoryId: string | null;
+  tagIds: string[];
+  versionNote: string;
+  performanceDate: string;
+  sourceUrl: string;
+  isFeatured: boolean;
+  isLiveCover: boolean;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SongDraftInput = {
+  title: string;
+  artist: string;
+  audioUploadId?: string;
+  coverUploadId?: string;
+  lyricsText: string;
+  categoryId: string | null;
+  tagIds: string[];
+  versionNote: string;
+  performanceDate: string;
+  sourceUrl: string;
+  isFeatured: boolean;
+  isLiveCover: boolean;
+  confirmDuplicate: boolean;
+  confirmAudioReplacement: boolean;
+};
+
 export type AdminAuthStatusResponse = {
   needsSetup: boolean;
   authenticated: boolean;

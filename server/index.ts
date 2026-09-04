@@ -42,6 +42,7 @@ async function start(): Promise<void> {
     app = await buildApp({
       config,
       database,
+      mediaStore,
       frontendDir: resolveFrontendDir(process.env, process.cwd()),
     });
   } catch (error) {
