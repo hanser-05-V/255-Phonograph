@@ -134,12 +134,27 @@ describe('App', () => {
   });
 
   it('keeps the admin route independent from public library failures', () => {
-    mockLibraryScenario('network');
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      needsSetup: false,
+      authenticated: false,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
     renderApp('/admin');
 
     expect(screen.getByRole('main', {name: '管理后台'})).toHaveTextContent('管理后台');
     expect(screen.queryByText('本地服务未运行')).not.toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith('/api/admin/auth/status', expect.objectContaining({
+      credentials: 'same-origin',
+    }));
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/library');
+  });
+
+  it('does not expose the fixed admin route in public navigation', async () => {
+    mockLibraryScenario('ready');
+    renderApp('/');
+
+    await screen.findByRole('navigation', {name: '主导航'});
+    expect(screen.queryByRole('link', {name: '管理后台'})).not.toBeInTheDocument();
   });
 
   it('keeps one player mounted while public routes change', async () => {
