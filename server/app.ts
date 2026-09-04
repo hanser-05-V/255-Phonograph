@@ -18,6 +18,8 @@ import {registerAdminAuthRoutes} from './routes/admin-auth.js';
 import {registerAdminSongRoutes} from './routes/admin-songs.js';
 import {registerAdminTaxonomyRoutes} from './routes/admin-taxonomy.js';
 import {registerAdminUploadRoutes} from './routes/admin-uploads.js';
+import {registerMediaRoutes} from './routes/media.js';
+import {registerPublicLibraryRoutes} from './routes/public-library.js';
 import {LocalMediaStore} from './storage/local-media-store.js';
 import type {MediaStore} from './storage/media-store.js';
 import {SongError, SongService} from './songs/song-service.js';
@@ -173,6 +175,12 @@ export async function buildApp(
     const songService = new SongService(database, mediaStore);
     await app.register(
       async (songRoutes) => registerAdminSongRoutes(songRoutes, songService),
+    );
+    await app.register(
+      async (publicRoutes) => registerPublicLibraryRoutes(publicRoutes, database),
+    );
+    await app.register(
+      async (mediaRoutes) => registerMediaRoutes(mediaRoutes, database, mediaStore),
     );
 
     app.addHook('onClose', () => {

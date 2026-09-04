@@ -11,6 +11,35 @@ export type TaxonomyItem = {
 
 export type SongStatus = 'draft' | 'published' | 'unlisted' | 'trashed';
 
+export type PublicSong = {
+  id: string;
+  title: string;
+  artist: string;
+  durationSeconds: number;
+  audioUrl: string;
+  coverUrl?: string;
+  lyricsUrl?: string;
+  category: TaxonomyItem | null;
+  tags: TaxonomyItem[];
+  versionNote?: string;
+  performanceDate?: string;
+  sourceUrl?: string;
+  isFeatured: boolean;
+  isLiveCover: boolean;
+  publishedAt: string;
+};
+
+export type LibraryResponse = {
+  songs: PublicSong[];
+  categories: TaxonomyItem[];
+  tags: TaxonomyItem[];
+  sections: {
+    recent: string[];
+    featured: string[];
+    liveCovers: string[];
+  };
+};
+
 export type AdminMediaSummary = {
   id: string;
   originalName: string;
