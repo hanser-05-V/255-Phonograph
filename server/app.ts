@@ -14,8 +14,13 @@ import type {AppConfig} from './config.js';
 import {UploadValidationError} from './media/media-validation.js';
 import {UploadService} from './media/upload-service.js';
 import {registerAdminAuthRoutes} from './routes/admin-auth.js';
+import {registerAdminTaxonomyRoutes} from './routes/admin-taxonomy.js';
 import {registerAdminUploadRoutes} from './routes/admin-uploads.js';
 import {LocalMediaStore} from './storage/local-media-store.js';
+import {
+  TaxonomyError,
+  TaxonomyService,
+} from './taxonomy/taxonomy-service.js';
 
 export type BuildAppDependencies = {
   config: AppConfig;
@@ -41,6 +46,13 @@ function isApiPath(url: string): boolean {
 function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler<FastifyError>((error, _request, reply) => {
     if (error instanceof UploadValidationError) {
+      const body: ApiErrorBody = {
+        error: {code: error.code, message: error.message},
+      };
+      return reply.status(error.statusCode).send(body);
+    }
+
+    if (error instanceof TaxonomyError) {
       const body: ApiErrorBody = {
         error: {code: error.code, message: error.message},
       };
@@ -117,6 +129,11 @@ export async function buildApp(
     app.decorate('adminSessionCookieName', dependencies.config.sessionCookieName);
     app.decorate('adminCookieSecure', dependencies.secureCookies === true);
     await app.register(registerAdminAuthRoutes);
+    const taxonomyService = new TaxonomyService(database);
+    await app.register(
+      async (taxonomyRoutes) =>
+        registerAdminTaxonomyRoutes(taxonomyRoutes, taxonomyService),
+    );
     const uploadService = new UploadService(
       database,
       new LocalMediaStore(dependencies.config.mediaDir),

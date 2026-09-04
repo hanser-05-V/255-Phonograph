@@ -2,6 +2,13 @@ export type HealthResponse = {
   ok: true;
 };
 
+export type TaxonomyItem = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminAuthStatusResponse = {
   needsSetup: boolean;
   authenticated: boolean;
