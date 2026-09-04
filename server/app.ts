@@ -9,12 +9,15 @@ import Fastify, {
 import type {DatabaseSync} from 'node:sqlite';
 
 import type {ApiErrorBody, HealthResponse} from '../shared/contracts.js';
+import {AdminAuthService} from './auth/admin-auth-service.js';
 import type {AppConfig} from './config.js';
+import {registerAdminAuthRoutes} from './routes/admin-auth.js';
 
 export type BuildAppDependencies = {
   config: AppConfig;
   database?: DatabaseSync;
   frontendDir?: string;
+  secureCookies?: boolean;
 };
 
 function notFoundBody(): ApiErrorBody {
@@ -59,6 +62,11 @@ export async function buildApp(
   await app.register(fastifyCookie);
 
   if (database) {
+    app.decorate('adminAuthService', new AdminAuthService(database));
+    app.decorate('adminSessionCookieName', dependencies.config.sessionCookieName);
+    app.decorate('adminCookieSecure', dependencies.secureCookies === true);
+    await app.register(registerAdminAuthRoutes);
+
     app.addHook('onClose', () => {
       database.close();
     });
