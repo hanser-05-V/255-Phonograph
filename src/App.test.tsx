@@ -80,6 +80,7 @@ function mockLibraryScenario(scenario: 'pending' | 'network' | 'http' | 'empty' 
 }
 
 beforeEach(() => {
+  localStorage.clear();
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
 });
 

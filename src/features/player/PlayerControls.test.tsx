@@ -22,6 +22,7 @@ const mockPlayer: PlayerContextValue = {
   isPlaying: false,
   isExpanded: false,
   error: null,
+  queueIds: ['first-light'],
   toggle: vi.fn().mockResolvedValue(undefined),
   playTrack: vi.fn().mockResolvedValue(undefined),
   next: vi.fn(),

@@ -51,6 +51,7 @@ function Harness() {
 describe('Player keyboard and error behavior', () => {
   afterEach(() => {
     cleanup();
+    localStorage.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });

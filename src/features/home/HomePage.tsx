@@ -29,11 +29,11 @@ export function HomePage() {
           />
           <DailyFeatures
             dailyTrack={player.tracks[dailyTrackIndex]}
-            onPlayDaily={() => void player.playTrack(dailyTrackIndex)}
+            onPlayDaily={() => void player.playTrack(player.tracks[dailyTrackIndex].id)}
           />
         </section>
         <FeaturedTracks
-          onPlayTrack={(index) => void player.playTrack(index)}
+          onPlayTrack={(index) => void player.playTrack(player.tracks[index].id)}
           query={query}
           tracks={player.tracks}
         />

@@ -1,3 +1,4 @@
+import {useMemo} from 'react';
 import {Navigate, Route, Routes} from 'react-router-dom';
 import type {Track} from '../player/types';
 import {HomePage} from '../home/HomePage';
@@ -39,14 +40,14 @@ function PlayerSurface() {
 
 export function PublicApp() {
   const {library, status} = useLibrary();
-  const tracks: Track[] = library?.songs.map((song) => ({
+  const tracks = useMemo<Track[]>(() => library?.songs.map((song) => ({
     id: song.id,
     title: song.title,
     artist: song.artist,
     audioUrl: song.audioUrl,
     coverUrl: song.coverUrl,
     lyricsUrl: song.lyricsUrl,
-  })) ?? [];
+  })) ?? [], [library?.songs]);
 
   if (status !== 'ready' || !library || tracks.length === 0) {
     return <PublicLibraryState status={status === 'ready' ? 'empty' : status} />;

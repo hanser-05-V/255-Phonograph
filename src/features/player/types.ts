@@ -9,3 +9,12 @@ export type Track = {
 };
 
 export type LyricLine = {time: number; text: string};
+
+export type PlayerSnapshotV2 = {
+  version: 2;
+  currentTrackId: string;
+  currentTime: number;
+  volume: number;
+  isMuted: boolean;
+  queueIds: string[];
+};
