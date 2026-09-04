@@ -1,5 +1,5 @@
-import {mkdir, rm, writeFile} from 'node:fs/promises';
-import path from 'node:path';
+import {mkdir} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
 
 import type {FastifyInstance} from 'fastify';
 
@@ -7,44 +7,31 @@ import {buildApp} from './app.js';
 import {resolveAppConfig, resolveFrontendDir} from './config.js';
 import {openDatabase} from './db/database.js';
 import {runMigrations} from './db/migrate.js';
-import {
-  seedTransitionSongs,
-  type TransitionSongMediaStore,
-} from './db/seed-transition-songs.js';
+import {seedTransitionSongs} from './db/seed-transition-songs.js';
+import {LocalMediaStore} from './storage/local-media-store.js';
+import type {MediaStore} from './storage/media-store.js';
 
-function createRuntimeMediaStore(mediaDir: string): TransitionSongMediaStore {
-  const resolveStoragePath = (storageKey: string): string => {
-    const storagePath = path.resolve(mediaDir, storageKey);
-    const mediaRoot = `${path.resolve(mediaDir)}${path.sep}`;
+const TEMPORARY_MEDIA_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
 
-    if (!storagePath.startsWith(mediaRoot)) {
-      throw new Error('Runtime media key must stay inside the media directory');
-    }
-
-    return storagePath;
-  };
-
-  return {
-    createRuntimeMedia: async (storageKey, bytes) => {
-      const storagePath = resolveStoragePath(storageKey);
-      await mkdir(path.dirname(storagePath), {recursive: true});
-      await writeFile(storagePath, bytes, {flag: 'wx'});
-    },
-    deleteRuntimeMedia: async (storageKey) => {
-      await rm(resolveStoragePath(storageKey), {force: true});
-    },
-  };
+export async function cleanupStaleTemporaryMedia(
+  mediaStore: Pick<MediaStore, 'cleanupStaleTemporary'>,
+  now: () => Date = () => new Date(),
+): Promise<number> {
+  return mediaStore.cleanupStaleTemporary(
+    new Date(now().getTime() - TEMPORARY_MEDIA_MAX_AGE_MS),
+  );
 }
 
 async function start(): Promise<void> {
   const config = resolveAppConfig(process.env, process.cwd());
   await mkdir(config.dataDir, {recursive: true});
-  await mkdir(config.mediaDir, {recursive: true});
+  const mediaStore = new LocalMediaStore(config.mediaDir);
 
   const database = openDatabase(config.databasePath);
   try {
     runMigrations(database);
-    await seedTransitionSongs(database, createRuntimeMediaStore(config.mediaDir));
+    await cleanupStaleTemporaryMedia(mediaStore);
+    await seedTransitionSongs(database, mediaStore);
   } catch (error) {
     database.close();
     throw error;
@@ -83,7 +70,10 @@ async function start(): Promise<void> {
   }
 }
 
-start().catch((error: unknown) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+const entryPoint = process.argv[1];
+if (entryPoint && import.meta.url === pathToFileURL(entryPoint).href) {
+  start().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

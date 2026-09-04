@@ -3,11 +3,7 @@ import {randomUUID} from 'node:crypto';
 import type {DatabaseSync} from 'node:sqlite';
 
 import {createDemoAudio} from '../media/create-demo-audio.js';
-
-export type TransitionSongMediaStore = {
-  createRuntimeMedia(storageKey: string, bytes: Uint8Array): Promise<void>;
-  deleteRuntimeMedia(storageKey: string): Promise<void>;
-};
+import type {MediaStore} from '../storage/media-store.js';
 
 export type TransitionSeedDependencies = {
   generateId: () => string;
@@ -59,9 +55,13 @@ function rollback(db: DatabaseSync): void {
   }
 }
 
+async function* oneChunk(bytes: Uint8Array): AsyncIterable<Uint8Array> {
+  yield bytes;
+}
+
 export async function seedTransitionSongs(
   db: DatabaseSync,
-  mediaStore: TransitionSongMediaStore,
+  mediaStore: MediaStore,
   dependencies: TransitionSeedDependencies = defaultDependencies,
 ): Promise<void> {
   const missingSongs = transitionSongs.filter(
@@ -79,43 +79,55 @@ export async function seedTransitionSongs(
   try {
     for (const song of missingSongs) {
       const mediaId = dependencies.generateId();
-      const storageKey = `runtime/${mediaId}.wav`;
       const audio = createDemoAudio({
         durationSeconds: 1,
         frequencyHz: song.frequencyHz,
       });
       const timestamp = dependencies.now();
+      let temporaryKey: string | undefined;
 
-      await mediaStore.createRuntimeMedia(storageKey, audio);
-      writtenStorageKeys.push(storageKey);
+      try {
+        ({temporaryKey} = await mediaStore.createTemporary('audio'));
+        await mediaStore.writeTemporary(temporaryKey, oneChunk(audio), {});
+        const stored = await mediaStore.promote(temporaryKey);
+        temporaryKey = undefined;
+        writtenStorageKeys.push(stored.storageKey);
 
-      db.prepare(`
-        INSERT INTO media_objects (
-          id, kind, storage_key, original_name, mime_type, byte_size, created_at
-        ) VALUES (?, 'audio', ?, ?, 'audio/wav', ?, ?)
-      `).run(
-        mediaId,
-        storageKey,
-        `${song.id}.wav`,
-        audio.byteLength,
-        timestamp,
-      );
+        db.prepare(`
+          INSERT INTO media_objects (
+            id, kind, storage_key, original_name, mime_type, byte_size, created_at
+          ) VALUES (?, 'audio', ?, ?, 'audio/wav', ?, ?)
+        `).run(
+          mediaId,
+          stored.storageKey,
+          `${song.id}.wav`,
+          stored.byteSize,
+          timestamp,
+        );
 
-      db.prepare(`
-        INSERT INTO songs (
-          id, title, artist, status, duration_seconds, audio_media_id,
-          lyrics_text, is_featured, is_live_cover, published_at,
-          created_at, updated_at
-        ) VALUES (?, ?, 'Hanser', 'published', 1, ?, ?, 0, 0, ?, ?, ?)
-      `).run(
-        song.id,
-        song.title,
-        mediaId,
-        song.lyricsText,
-        song.publishedAt,
-        timestamp,
-        timestamp,
-      );
+        db.prepare(`
+          INSERT INTO songs (
+            id, title, artist, status, duration_seconds, audio_media_id,
+            lyrics_text, is_featured, is_live_cover, published_at,
+            created_at, updated_at
+          ) VALUES (?, ?, 'Hanser', 'published', 1, ?, ?, 0, 0, ?, ?, ?)
+        `).run(
+          song.id,
+          song.title,
+          mediaId,
+          song.lyricsText,
+          song.publishedAt,
+          timestamp,
+          timestamp,
+        );
+      } catch (error) {
+        if (temporaryKey) {
+          await Promise.allSettled([
+            mediaStore.cleanupTemporary(temporaryKey),
+          ]);
+        }
+        throw error;
+      }
     }
 
     db.exec('COMMIT');
@@ -123,7 +135,7 @@ export async function seedTransitionSongs(
     rollback(db);
     await Promise.allSettled(
       writtenStorageKeys.map((storageKey) =>
-        mediaStore.deleteRuntimeMedia(storageKey),
+        mediaStore.delete(storageKey),
       ),
     );
     throw error;

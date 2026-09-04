@@ -1,8 +1,32 @@
 import {describe, expect, it} from 'vitest';
 
 import {createDemoAudio} from '../media/create-demo-audio.js';
+import type {MediaStore} from '../storage/media-store.js';
 import {createTestContext} from '../test/test-context.js';
 import {seedTransitionSongs} from './seed-transition-songs.js';
+
+const STORAGE_KEY_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function delegateMediaStore(
+  store: MediaStore,
+  overrides: Partial<MediaStore>,
+): MediaStore {
+  return {
+    createTemporary:
+      overrides.createTemporary ?? store.createTemporary.bind(store),
+    writeTemporary:
+      overrides.writeTemporary ?? store.writeTemporary.bind(store),
+    promote: overrides.promote ?? store.promote.bind(store),
+    open: overrides.open ?? store.open.bind(store),
+    delete: overrides.delete ?? store.delete.bind(store),
+    cleanupTemporary:
+      overrides.cleanupTemporary ?? store.cleanupTemporary.bind(store),
+    cleanupStaleTemporary:
+      overrides.cleanupStaleTemporary ??
+      store.cleanupStaleTemporary.bind(store),
+  };
+}
 
 const fixedDependencies = () => {
   const ids = ['media-first', 'media-volcano', 'media-night'];
@@ -55,20 +79,19 @@ describe('transition song seed', () => {
           status: 'published',
         },
       ]);
+      const storedRows = context.db
+        .prepare('SELECT storage_key FROM media_objects ORDER BY storage_key')
+        .all() as Array<{storage_key: string}>;
+      expect(storedRows).toHaveLength(3);
       expect(
-        context.db
-          .prepare('SELECT storage_key FROM media_objects ORDER BY storage_key')
-          .all(),
-      ).toEqual([
-        {storage_key: 'runtime/media-first.wav'},
-        {storage_key: 'runtime/media-night.wav'},
-        {storage_key: 'runtime/media-volcano.wav'},
-      ]);
-      expect(await context.listRuntimeMedia()).toEqual([
-        'runtime/media-first.wav',
-        'runtime/media-night.wav',
-        'runtime/media-volcano.wav',
-      ]);
+        storedRows.every(({storage_key}) =>
+          STORAGE_KEY_PATTERN.test(storage_key),
+        ),
+      ).toBe(true);
+      expect(new Set(storedRows.map(({storage_key}) => storage_key)).size).toBe(3);
+      expect(await context.listStoredMedia()).toEqual(
+        storedRows.map(({storage_key}) => storage_key),
+      );
     } finally {
       await context.dispose();
     }
@@ -127,16 +150,19 @@ describe('transition song seed', () => {
   it('rolls back database rows and removes newly written media when seeding fails', async () => {
     const context = await createTestContext();
     let writes = 0;
-    const failingMediaStore = {
-      deleteRuntimeMedia: context.mediaStore.deleteRuntimeMedia,
-      createRuntimeMedia: async (storageKey: string, bytes: Uint8Array) => {
+    const failingMediaStore = delegateMediaStore(context.mediaStore, {
+      writeTemporary: async (temporaryKey, source, options) => {
         writes += 1;
         if (writes === 2) {
           throw new Error('simulated media failure');
         }
-        await context.mediaStore.createRuntimeMedia(storageKey, bytes);
+        return context.mediaStore.writeTemporary(
+          temporaryKey,
+          source,
+          options,
+        );
       },
-    };
+    });
 
     try {
       await expect(
@@ -144,28 +170,36 @@ describe('transition song seed', () => {
       ).rejects.toThrow('simulated media failure');
       expect(context.db.prepare('SELECT id FROM songs').all()).toEqual([]);
       expect(context.db.prepare('SELECT id FROM media_objects').all()).toEqual([]);
-      expect(await context.listRuntimeMedia()).toEqual([]);
+      expect(await context.listStoredMedia()).toEqual([]);
     } finally {
       await context.dispose();
     }
   });
 
-  it('does not overwrite or clean up media that already owns a generated key', async () => {
+  it('does not clean up a stored object that predates a failed seed', async () => {
     const context = await createTestContext();
-    await context.mediaStore.createRuntimeMedia(
-      'runtime/media-first.wav',
-      new Uint8Array([1, 2, 3]),
+    const {temporaryKey} = await context.mediaStore.createTemporary('audio');
+    await context.mediaStore.writeTemporary(
+      temporaryKey,
+      (async function* () {
+        yield new Uint8Array([1, 2, 3]);
+      })(),
+      {},
     );
+    const existing = await context.mediaStore.promote(temporaryKey);
+    const failingMediaStore = delegateMediaStore(context.mediaStore, {
+      createTemporary: async () => {
+        throw new Error('simulated media failure');
+      },
+    });
 
     try {
       await expect(
-        seedTransitionSongs(context.db, context.mediaStore, fixedDependencies()),
-      ).rejects.toThrow();
+        seedTransitionSongs(context.db, failingMediaStore, fixedDependencies()),
+      ).rejects.toThrow('simulated media failure');
       expect(context.db.prepare('SELECT id FROM songs').all()).toEqual([]);
       expect(context.db.prepare('SELECT id FROM media_objects').all()).toEqual([]);
-      expect(await context.listRuntimeMedia()).toEqual([
-        'runtime/media-first.wav',
-      ]);
+      expect(await context.listStoredMedia()).toEqual([existing.storageKey]);
     } finally {
       await context.dispose();
     }
