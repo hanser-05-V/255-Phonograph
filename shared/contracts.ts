@@ -20,6 +20,24 @@ export type AdminChangePasswordRequest = {
   newPassword: string;
 };
 
+export type PendingUploadResponse = {
+  uploadId: string;
+  originalName: string;
+  mimeType: string;
+  byteSize: number;
+  durationSeconds: number | null;
+};
+
+export type LrcValidationResponse = {
+  valid: boolean;
+  errors: Array<{line: number; message: string}>;
+};
+
+export type LrcUploadResponse = {
+  content: string;
+  validation: LrcValidationResponse;
+};
+
 export type ApiErrorBody = {
   error: {
     code: string;
