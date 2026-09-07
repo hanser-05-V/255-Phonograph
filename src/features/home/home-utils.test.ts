@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import type {Track} from '../player/types';
-import {filterTracks, getDailyTrackIndex} from './home-utils';
+import {getDailyTrackIndex, resolveSectionTracks} from './home-utils';
 
 const tracks: Track[] = [
   {id: 'first-light', title: '初光', artist: 'Hanser', audioUrl: 'first.wav'},
@@ -21,10 +21,24 @@ describe('home utilities', () => {
     );
   });
 
-  it('matches trimmed title or artist queries and treats empty input as all tracks', () => {
-    expect(filterTracks(tracks, '  小星球 ')).toEqual([tracks[1]]);
-    expect(filterTracks(tracks, 'HANSER')).toEqual(tracks);
-    expect(filterTracks(tracks, '   ')).toEqual(tracks);
-    expect(filterTracks(tracks, '不存在')).toEqual([]);
+  it('resolves server section ids in order, drops stale ids, and caps after filtering', () => {
+    const sectionTracks = Array.from({length: 7}, (_, index): Track => ({
+      id: `track-${index}`,
+      title: `歌曲 ${index}`,
+      artist: 'Hanser',
+      audioUrl: `${index}.mp3`,
+    }));
+
+    expect(resolveSectionTracks(
+      new Map(sectionTracks.map((track) => [track.id, track])),
+      ['missing', ...sectionTracks.map(({id}) => id)],
+    ).map(({id}) => id)).toEqual([
+      'track-0',
+      'track-1',
+      'track-2',
+      'track-3',
+      'track-4',
+      'track-5',
+    ]);
   });
 });

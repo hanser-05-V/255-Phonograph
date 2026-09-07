@@ -1,10 +1,16 @@
-import {act, cleanup, render, screen} from '@testing-library/react';
+import {act, cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import type {LibraryResponse, PublicSong} from '../../../shared/contracts';
+import {LibraryContext} from '../library/LibraryProvider';
+import {toPlayerTracks} from '../library/PublicApp';
+import {
+  libraryFixture,
+  libraryWithSections,
+} from '../library/test/library-fixtures';
 import {MiniPlayer} from '../player/MiniPlayer';
 import {PlayerProvider} from '../player/PlayerProvider';
-import {demoTracks} from '../player/demo-tracks';
 import {usePlayer} from '../player/usePlayer';
 import {getLocalDateKey} from './daily-listening';
 import {getDailyTrackIndex} from './home-utils';
@@ -17,7 +23,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderHome(audioControllers: HTMLAudioElement[] = []) {
+function renderHome({
+  library = libraryWithSections,
+  audioControllers = [],
+}: {
+  library?: LibraryResponse;
+  audioControllers?: HTMLAudioElement[];
+} = {}) {
   function PlayerReader() {
     const {audio, currentTrack} = usePlayer();
     if (audio && !audioControllers.includes(audio)) {
@@ -38,16 +50,53 @@ function renderHome(audioControllers: HTMLAudioElement[] = []) {
 
   return render(
     <MemoryRouter>
-      <PlayerProvider tracks={demoTracks}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/music" element={<MusicDestination />} />
-        </Routes>
-        <MiniPlayer />
-        <PlayerReader />
-      </PlayerProvider>
+      <LibraryContext.Provider value={{
+        library,
+        status: 'ready',
+        error: null,
+        refresh: vi.fn(),
+      }}>
+        <PlayerProvider tracks={toPlayerTracks(library.songs)}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/music" element={<MusicDestination />} />
+          </Routes>
+          <MiniPlayer />
+          <PlayerReader />
+        </PlayerProvider>
+      </LibraryContext.Provider>
     </MemoryRouter>,
   );
+}
+
+function makeSectionLibrary(counts: {
+  recent: number;
+  featured: number;
+  liveCovers: number;
+}): LibraryResponse {
+  const songCount = Math.max(counts.recent, counts.featured, counts.liveCovers);
+  const songs: PublicSong[] = Array.from({length: songCount}, (_, index) => {
+    const source = libraryFixture.songs[index % libraryFixture.songs.length];
+    return index === 0
+      ? source
+      : {
+          ...source,
+          id: `section-song-${index}`,
+          title: `分区歌曲 ${index}`,
+          audioUrl: `/api/media/section-song-${index}`,
+        };
+  });
+  const ids = songs.map(({id}) => id);
+
+  return {
+    ...libraryFixture,
+    songs,
+    sections: {
+      recent: ids.slice(0, counts.recent),
+      featured: ids.slice(0, counts.featured),
+      liveCovers: ids.slice(0, counts.liveCovers),
+    },
+  };
 }
 
 describe('HomePage', () => {
@@ -70,10 +119,10 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', {name: '每日一签'})).toBeDisabled();
     expect(screen.getByText('功能筹备中')).toBeInTheDocument();
     expect(screen.getByText('直播翻唱精选')).toBeInTheDocument();
-    expect(screen.getAllByText('持续整理中')).toHaveLength(2);
+    expect(screen.getByText('最近加入')).toBeInTheDocument();
     expect(screen.getByText('故事会精选')).toBeInTheDocument();
     expect(screen.queryByText('安静时刻')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', {name: /直播翻唱精选|最近加入|故事会精选/})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: /故事会精选|最近更新|时间轴/})).not.toBeInTheDocument();
   });
 
   it('submits homepage title search without remounting the shared player', async () => {
@@ -81,15 +130,21 @@ describe('HomePage', () => {
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
     const user = userEvent.setup();
     const audioControllers: HTMLAudioElement[] = [];
-    renderHome(audioControllers);
+    renderHome({audioControllers});
 
     const search = screen.getByRole('searchbox', {name: '按歌名搜索'});
     await user.type(search, '小星球');
-    expect(screen.getByRole('button', {name: '播放 等火山喷发的小星球'})).toBeInTheDocument();
-    expect(screen.getByRole('button', {name: '播放 初光'})).toBeInTheDocument();
-    expect(screen.getByRole('button', {name: '播放 夜行'})).toBeInTheDocument();
+    const recentSection = screen.getByRole('region', {name: '最近加入'});
+    expect(within(recentSection).getByRole('button', {name: '播放 等火山喷发的小星球'}))
+      .toBeInTheDocument();
+    expect(within(recentSection).getByRole('button', {name: '播放 初光'}))
+      .toBeInTheDocument();
+    expect(within(recentSection).getByRole('button', {name: '播放 夜行'}))
+      .toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', {name: '播放 等火山喷发的小星球'}));
+    await user.click(within(recentSection).getByRole('button', {
+      name: '播放 等火山喷发的小星球',
+    }));
     expect(play).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('current-track')).toHaveTextContent('等火山喷发的小星球');
 
@@ -111,8 +166,9 @@ describe('HomePage', () => {
 
     const firstDate = '2026-09-01';
     const nextDate = '2026-09-02';
-    const firstTrack = demoTracks[getDailyTrackIndex(firstDate, demoTracks.length)];
-    const nextTrack = demoTracks[getDailyTrackIndex(nextDate, demoTracks.length)];
+    const tracks = toPlayerTracks(libraryWithSections.songs);
+    const firstTrack = tracks[getDailyTrackIndex(firstDate, tracks.length)];
+    const nextTrack = tracks[getDailyTrackIndex(nextDate, tracks.length)];
     expect(firstTrack).not.toBe(nextTrack);
     expect(screen.getByRole('button', {
       name: new RegExp(`每日憨曲.*${firstTrack.title}`),
@@ -124,5 +180,45 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', {
       name: new RegExp(`每日憨曲.*${nextTrack.title}`),
     })).toBeInTheDocument();
+  });
+
+  it('renders three server-defined sections capped at six and plays the daily track by stable id', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 3, 9));
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    localStorage.setItem('255-phonograph:player:v2', JSON.stringify({
+      version: 2,
+      currentTrackId: 'section-song-1',
+      currentTime: 0,
+      volume: 0.7,
+      isMuted: false,
+      queueIds: ['section-song-1'],
+    }));
+    const library = makeSectionLibrary({recent: 8, featured: 7, liveCovers: 7});
+    renderHome({library});
+
+    expect(screen.getByTestId('current-track')).toHaveTextContent('分区歌曲 1');
+    expect(screen.getByRole('region', {name: '最近加入'}).querySelectorAll('article'))
+      .toHaveLength(6);
+    expect(screen.getByRole('region', {name: '精选歌曲'}).querySelectorAll('article'))
+      .toHaveLength(6);
+    expect(screen.getByRole('region', {name: '直播翻唱精选'}).querySelectorAll('article'))
+      .toHaveLength(6);
+
+    fireEvent.click(screen.getByRole('button', {name: '播放每日憨曲：初光'}));
+    expect(screen.getByTestId('current-track')).toHaveTextContent('初光');
+  });
+
+  it('keeps story previews non-navigable and links every music section to the library', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    renderHome();
+
+    const musicLinks = screen.getAllByRole('link', {name: '进入音乐馆'});
+    expect(musicLinks).toHaveLength(3);
+    expect(musicLinks.every((link) => link.getAttribute('href') === '/music')).toBe(true);
+    expect(screen.queryByRole('link', {name: /故事会精选|最近更新|时间轴/}))
+      .not.toBeInTheDocument();
   });
 });

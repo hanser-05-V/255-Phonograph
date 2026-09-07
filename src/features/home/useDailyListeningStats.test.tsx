@@ -19,6 +19,18 @@ function currentView() {
   return JSON.parse(screen.getByTestId('daily-listening-stats').textContent ?? '');
 }
 
+function memoryStorage(initial: Record<string, string> = {}): Storage {
+  const values = new Map(Object.entries(initial));
+  return {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => values.delete(key),
+    setItem: (key, value) => values.set(key, value),
+  };
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -38,6 +50,9 @@ describe('daily listening records', () => {
     expect(toDailyListeningView(stats).songCount).toBe(0);
 
     stats = addListeningSeconds(stats, '2026-09-01', 'track-a', 1);
+    expect(toDailyListeningView(stats).songCount).toBe(1);
+
+    stats = addListeningSeconds(stats, '2026-09-01', 'track-a', 120);
     expect(toDailyListeningView(stats).songCount).toBe(1);
 
     stats = addListeningSeconds(stats, '2026-09-01', 'track-b', 3600);
@@ -67,6 +82,24 @@ describe('daily listening records', () => {
 
     const blockedStorage = {setItem: () => { throw new Error('blocked'); }} as unknown as Storage;
     expect(() => writeDailyStats(createEmptyDailyStats('2026-09-01'), blockedStorage)).not.toThrow();
+  });
+
+  it('preserves an existing same-day stable-id record', () => {
+    const storage = memoryStorage({
+      '255-phonograph:listening:2026-09-03': JSON.stringify({
+        date: '2026-09-03',
+        totalSeconds: 73,
+        trackSeconds: {'first-light': 11},
+      }),
+    });
+
+    expect(toDailyListeningView(readDailyStats('2026-09-03', storage))).toEqual({
+      date: '2026-09-03',
+      totalSeconds: 73,
+      minutes: 1,
+      songCount: 1,
+      concentration: 2,
+    });
   });
 });
 

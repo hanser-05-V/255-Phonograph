@@ -45,7 +45,7 @@ npm run typecheck
 | `backgroundUrl` | `string` | 否 | 沉浸式播放器背景地址；省略时回退到 `coverUrl` |
 | `lyricsUrl` | `string` | 否 | LRC 歌词文件地址 |
 
-类型定义位于 `src/features/player/types.ts`，演示曲目位于 `src/features/player/demo-tracks.ts`。当前演示音频和歌词由代码即时生成，不依赖仓库中的媒体文件。
+类型定义位于 `src/features/player/types.ts`。普通页面从动态曲库读取歌曲；首次初始化的过渡歌曲和运行时示范音频由本地服务写入项目外数据目录，前端不再包含静态演示曲目或内嵌生成音频。
 
 ## 媒体与生成文件
 

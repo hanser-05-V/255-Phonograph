@@ -4,27 +4,22 @@ import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import type {LibraryResponse} from '../../../shared/contracts';
 import {App} from '../../App';
-import {demoTracks} from './demo-tracks';
+import {toPlayerTracks} from '../library/PublicApp';
+import {libraryWithSections} from '../library/test/library-fixtures';
 import {FullPlayer} from './FullPlayer';
 import {PlayerProvider} from './PlayerProvider';
 
+const tracks = toPlayerTracks(libraryWithSections.songs).map((track, index) => ({
+  ...track,
+  lyricsUrl: index === 0 ? '/api/media/first-light-lyrics' : track.lyricsUrl,
+}));
+
 const library: LibraryResponse = {
-  songs: demoTracks.map((track, index) => ({
-    ...track,
-    durationSeconds: 120,
-    category: null,
-    tags: [],
-    isFeatured: true,
-    isLiveCover: false,
-    publishedAt: `2026-09-0${3 - index}T12:00:00.000Z`,
+  ...libraryWithSections,
+  songs: libraryWithSections.songs.map((song, index) => ({
+    ...song,
+    lyricsUrl: tracks[index].lyricsUrl,
   })),
-  categories: [],
-  tags: [],
-  sections: {
-    recent: demoTracks.map(({id}) => id),
-    featured: demoTracks.map(({id}) => id),
-    liveCovers: [],
-  },
 };
 
 function mockLibrary() {
@@ -51,7 +46,7 @@ describe('FullPlayer', () => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
 
     render(
-      <PlayerProvider tracks={demoTracks}>
+      <PlayerProvider tracks={tracks}>
         <FullPlayer />
       </PlayerProvider>,
     );
@@ -108,7 +103,7 @@ describe('FullPlayer', () => {
       text: () => Promise.resolve('[00:00.00]初光\n[00:01.20]让今天慢慢开始'),
     }));
     render(
-      <PlayerProvider tracks={demoTracks}>
+      <PlayerProvider tracks={tracks}>
         <FullPlayer />
       </PlayerProvider>,
     );

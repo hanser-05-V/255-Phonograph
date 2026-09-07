@@ -120,7 +120,6 @@ button {
 .listening-summary,
 .daily-features article,
 .featured-tracks__list article,
-.featured-tracks__collections article,
 .story-preview article {
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
@@ -264,7 +263,16 @@ button {
   scroll-margin-top: 24px;
 }
 
+.home-music-sections {
+  display: grid;
+  gap: 32px;
+}
+
 .featured-tracks > header {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
   margin-bottom: 14px;
 }
 
@@ -287,9 +295,26 @@ button {
   font-weight: 600;
 }
 
+.featured-tracks__library-link {
+  color: #f1c96f;
+  font-size: 13px;
+  text-underline-offset: 4px;
+}
+
+.featured-tracks__library-link:hover,
+.featured-tracks__library-link:focus-visible {
+  color: #fff8e9;
+}
+
+.featured-tracks__library-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #e8c06a;
+  outline-offset: 4px;
+}
+
 .featured-tracks__list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -313,8 +338,6 @@ button {
 
 .featured-tracks__list h3,
 .featured-tracks__list p,
-.featured-tracks__collections h3,
-.featured-tracks__collections p,
 .story-preview article h3,
 .story-preview article p {
   margin: 0;
@@ -346,26 +369,12 @@ button {
   background: rgba(5, 12, 18, 0.42);
 }
 
-.featured-tracks__collections {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 18px;
-}
-
-.featured-tracks__collections article,
 .story-preview article {
   min-height: 100px;
   padding: 18px;
   border-radius: 14px;
   background: rgba(5, 12, 18, 0.56);
 }
-
-.featured-tracks__collections article:first-child {
-  background: linear-gradient(125deg, rgba(48, 93, 108, 0.84), rgba(8, 17, 24, 0.7));
-}
-
-.featured-tracks__collections p,
 .story-preview article p {
   margin-top: 8px;
   color: rgba(247, 242, 232, 0.58);
@@ -1084,7 +1093,6 @@ button {
   }
 
   .featured-tracks__list,
-  .featured-tracks__collections,
   .story-preview > div {
     grid-template-columns: minmax(0, 1fr);
   }

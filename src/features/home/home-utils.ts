@@ -12,13 +12,11 @@ export const getDailyTrackIndex = (date: string, count: number) => {
   return seed % count;
 };
 
-export const filterTracks = (tracks: Track[], query: string) => {
-  const normalized = query.trim().toLocaleLowerCase();
-  if (!normalized) {
-    return tracks;
-  }
-
-  return tracks.filter((track) =>
-    `${track.title} ${track.artist}`.toLocaleLowerCase().includes(normalized),
-  );
-};
+export const resolveSectionTracks = (
+  trackById: ReadonlyMap<string, Track>,
+  trackIds: readonly string[],
+  limit = 6,
+) => trackIds
+  .map((trackId) => trackById.get(trackId))
+  .filter((track): track is Track => track !== undefined)
+  .slice(0, limit);
