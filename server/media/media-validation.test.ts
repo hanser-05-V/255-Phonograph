@@ -45,6 +45,19 @@ describe('validateUpload', () => {
     ).not.toThrow();
   });
 
+  it('accepts the audio/x-m4a MIME reported by file-type throughout the M4A lifecycle', () => {
+    for (const declaredMime of ['audio/mp4', 'audio/x-m4a']) {
+      expect(() =>
+        validateUpload('audio', {
+          originalName: 'song.m4a',
+          declaredMime,
+          detectedMime: 'audio/x-m4a',
+          byteSize: 1024,
+        }),
+      ).not.toThrow();
+    }
+  });
+
   it.each([
     ['audio', 'large.mp3', 'audio/mpeg', 'audio/mpeg', 200 * 1024 * 1024 + 1, '音频不能超过 200 MB'],
     ['cover', 'large.png', 'image/png', 'image/png', 10 * 1024 * 1024 + 1, '封面不能超过 10 MB'],

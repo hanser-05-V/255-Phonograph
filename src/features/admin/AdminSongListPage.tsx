@@ -41,10 +41,12 @@ export function AdminSongListPage() {
   const [status, setStatus] = useState('');
   const actionRef = useRef<AbortController | null>(null);
   const recentActionRef = useRef<{key: string; at: number} | null>(null);
+  const activeStatusRef = useRef(activeStatus);
+  activeStatusRef.current = activeStatus;
 
   const loadSongs = useCallback(async (listStatus: ListStatus, signal: AbortSignal) => {
     const result = await adminApi.listSongs(listStatus, signal);
-    if (!signal.aborted) setSongs(result);
+    if (!signal.aborted && activeStatusRef.current === listStatus) setSongs(result);
   }, []);
 
   useEffect(() => {

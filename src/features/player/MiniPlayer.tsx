@@ -1,3 +1,4 @@
+import {MediaImage} from '../../components/MediaImage';
 import {PlayerControls} from './PlayerControls';
 import {usePlayer} from './usePlayer';
 
@@ -10,20 +11,24 @@ export function MiniPlayer() {
       aria-label="迷你播放器"
       className="mini-player"
       inert={isExpanded}
-      onClick={() => setExpanded(true)}
       role="region"
     >
-      <div className="mini-player__track">
-        {currentTrack.coverUrl ? (
-          <img alt={`${currentTrack.title} 封面`} src={currentTrack.coverUrl} />
-        ) : (
-          <div aria-hidden="true" className="mini-player__cover-placeholder" />
-        )}
+      <button
+        aria-label="展开播放器"
+        className="mini-player__track"
+        onClick={() => setExpanded(true)}
+        type="button"
+      >
+        <MediaImage
+          alt={`${currentTrack.title} 封面`}
+          fallbackLabel={currentTrack.title}
+          src={currentTrack.coverUrl}
+        />
         <div>
           <p>{currentTrack.title}</p>
           <p>{currentTrack.artist}</p>
         </div>
-      </div>
+      </button>
       {error ? (
         <p aria-label="音频状态" className="mini-player__error" role="status">
           {error}

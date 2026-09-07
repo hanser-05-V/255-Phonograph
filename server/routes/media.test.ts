@@ -128,6 +128,22 @@ describe('public media route', () => {
     expect(mediaStore.readChunks).toBe(0);
   });
 
+  it('serves a published M4A stored with the detected audio/x-m4a MIME', async () => {
+    const media = await seedPublishedAudio(context, Buffer.from('m4a-data'), 'audio/x-m4a');
+    context.db.prepare(`
+      UPDATE media_objects SET original_name = 'song.m4a' WHERE id = ?
+    `).run(media.id);
+
+    const response = await context.app.inject({
+      method: 'GET',
+      url: `/api/media/${media.id}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toBe('audio/x-m4a');
+    expect(response.body).toBe('m4a-data');
+  });
+
   it('serves audio ranges and rejects invalid or missing media', async () => {
     const media = await seedPublishedAudio(context, Buffer.from('0123456789'));
     const partial = await context.app.inject({

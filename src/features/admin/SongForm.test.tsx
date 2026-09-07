@@ -76,6 +76,25 @@ describe('SongForm', () => {
     expect(await screen.findByText('稳定歌曲编号：song-255')).toBeInTheDocument();
   });
 
+  it('cancels a confirmation dialog with Escape and keeps the form editable', async () => {
+    vi.mocked(adminApi.saveSong).mockRejectedValue(new ApiError(
+      409, 'DUPLICATE_CONFIRMATION_REQUIRED', '存在同名同歌手歌曲',
+    ));
+    const user = userEvent.setup();
+    renderAdmin('/admin/songs/new');
+
+    await user.type(await screen.findByLabelText('歌名'), '初光');
+    await user.type(screen.getByLabelText('歌手'), 'Hanser');
+    await user.click(screen.getByRole('button', {name: '保存草稿'}));
+
+    const dialog = await screen.findByRole('dialog', {name: '确认重复歌曲'});
+    fireEvent.keyDown(dialog, {key: 'Escape'});
+
+    expect(screen.queryByRole('dialog', {name: '确认重复歌曲'})).not.toBeInTheDocument();
+    expect(screen.getByLabelText('歌名')).toHaveValue('初光');
+    expect(screen.getByRole('button', {name: '保存草稿'})).toBeEnabled();
+  });
+
   it('submits the exact song draft fields with one category and multiple tags', async () => {
     const secondTag = {...tag, id: 'tag-live', name: '直播'};
     vi.mocked(adminApi.listTags).mockResolvedValue([tag, secondTag]);
@@ -121,6 +140,12 @@ describe('SongForm', () => {
     await user.upload(screen.getByLabelText('音频文件'), new File(['new'], 'new.mp3', {
       type: 'audio/mpeg',
     }));
+    act(() => createdXhrs[0].progress({loaded: 1, total: 2}));
+    expect(screen.getByRole('progressbar', {name: '音频文件上传进度'})).toHaveAttribute(
+      'aria-valuenow',
+      '50',
+    );
+    expect(screen.getByText('已上传 50%')).toHaveAttribute('role', 'status');
     act(() => createdXhrs[0].respond(201, {
       uploadId: 'upload-new', originalName: 'new.mp3', mimeType: 'audio/mpeg',
       byteSize: 3, durationSeconds: 150,

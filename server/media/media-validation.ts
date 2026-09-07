@@ -29,16 +29,16 @@ export const LRC_MAX_BYTES = 1024 * 1024;
 
 const acceptedTypes = {
   audio: new Map([
-    ['.mp3', 'audio/mpeg'],
-    ['.m4a', 'audio/mp4'],
+    ['.mp3', new Set(['audio/mpeg'])],
+    ['.m4a', new Set(['audio/mp4', 'audio/x-m4a'])],
   ]),
   cover: new Map([
-    ['.jpg', 'image/jpeg'],
-    ['.jpeg', 'image/jpeg'],
-    ['.png', 'image/png'],
-    ['.webp', 'image/webp'],
+    ['.jpg', new Set(['image/jpeg'])],
+    ['.jpeg', new Set(['image/jpeg'])],
+    ['.png', new Set(['image/png'])],
+    ['.webp', new Set(['image/webp'])],
   ]),
-} satisfies Record<UploadKind, Map<string, string>>;
+} satisfies Record<UploadKind, Map<string, Set<string>>>;
 
 function extensionOf(filename: string): string {
   const basename = filename.replaceAll('\\', '/').split('/').at(-1) ?? '';
@@ -70,8 +70,9 @@ export function validateUpload(
     );
   }
 
-  const expectedMime = acceptedTypes[kind].get(extensionOf(input.originalName));
-  if (!expectedMime || normalizedMime(input.declaredMime) !== expectedMime) {
+  const extension = extensionOf(input.originalName);
+  const expectedMimes = acceptedTypes[kind].get(extension);
+  if (!expectedMimes || !expectedMimes.has(normalizedMime(input.declaredMime))) {
     throw new UploadValidationError(
       'UNSUPPORTED_MEDIA_TYPE',
       kind === 'audio' ? '仅支持 MP3 或 M4A 音频' : '仅支持 JPG、PNG 或 WebP 封面',
@@ -83,8 +84,8 @@ export function validateUpload(
     ? normalizedMime(input.detectedMime)
     : undefined;
   const detectedTypeMatches =
-    detectedMime === expectedMime ||
-    (extensionOf(input.originalName) === '.m4a' && detectedMime === 'video/mp4');
+    (detectedMime !== undefined && expectedMimes.has(detectedMime)) ||
+    (extension === '.m4a' && detectedMime === 'video/mp4');
   if (!detectedTypeMatches) {
     throw new UploadValidationError(
       'INVALID_MEDIA',

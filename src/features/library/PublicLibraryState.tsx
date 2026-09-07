@@ -9,7 +9,11 @@ const stateMessages: Record<Exclude<LibraryStatus, 'ready'>, string> = {
 
 export function PublicLibraryState({status}: {status: Exclude<LibraryStatus, 'ready'>}) {
   return (
-    <main aria-label="曲库状态">
+    <main
+      aria-busy={status === 'loading'}
+      aria-label="曲库状态"
+      className="public-library-state"
+    >
       <p role="status">{stateMessages[status]}</p>
     </main>
   );

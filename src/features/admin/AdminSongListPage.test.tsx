@@ -25,6 +25,14 @@ function song(status: SongStatus, id = `song-${status}`): AdminSong {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return {promise, resolve};
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(adminApi.getAuthStatus).mockResolvedValue({needsSetup: false, authenticated: true});
@@ -37,6 +45,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('AdminSongListPage', () => {
+  it('provides field labels for the narrow-screen song cards', async () => {
+    renderAdmin('/admin');
+
+    const row = await screen.findByRole('row', {name: /草稿歌曲/});
+    expect(within(row).getByText('草稿歌曲').closest('td')).toHaveAttribute('data-label', '歌名');
+    expect(within(row).getByText('Hanser').closest('td')).toHaveAttribute('data-label', '歌手');
+    expect(within(row).getByText('草稿', {selector: 'td'})).toHaveAttribute('data-label', '状态');
+    expect(within(row).getByText('编辑').closest('td')).toHaveAttribute('data-label', '操作');
+  });
+
   it('queries status tabs and exposes only valid lifecycle actions', async () => {
     const user = userEvent.setup();
     renderAdmin('/admin');
@@ -70,6 +88,28 @@ describe('AdminSongListPage', () => {
     expect(adminApi.publishSong).toHaveBeenCalledTimes(1);
     expect(adminApi.listSongs).toHaveBeenCalledTimes(2);
     expect(await screen.findByText('歌曲已发布')).toHaveAttribute('role', 'status');
+  });
+
+  it('does not let an action refresh overwrite a newly selected status tab', async () => {
+    const staleDraftRefresh = deferred<AdminSong[]>();
+    const publishedLoad = deferred<AdminSong[]>();
+    vi.mocked(adminApi.listSongs)
+      .mockResolvedValueOnce([song('draft')])
+      .mockImplementationOnce(async () => staleDraftRefresh.promise)
+      .mockImplementationOnce(async () => publishedLoad.promise);
+    const user = userEvent.setup();
+    renderAdmin('/admin');
+    const publish = within(await screen.findByRole('row', {name: /草稿歌曲/}))
+      .getByRole('button', {name: '发布'});
+
+    await user.click(publish);
+    await user.click(screen.getByRole('tab', {name: '已发布'}));
+    publishedLoad.resolve([song('published')]);
+    expect(await screen.findByRole('row', {name: /已发布歌曲/})).toBeInTheDocument();
+
+    staleDraftRefresh.resolve([song('draft', 'stale-draft')]);
+    expect(await screen.findByRole('row', {name: /已发布歌曲/})).toBeInTheDocument();
+    expect(screen.queryByRole('row', {name: /草稿歌曲/})).not.toBeInTheDocument();
   });
 
   it('summarizes publishability errors and links them to the affected row', async () => {

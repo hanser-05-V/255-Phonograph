@@ -1,3 +1,4 @@
+import {MediaImage} from '../../components/MediaImage';
 import {DiscArtwork} from './DiscArtwork';
 import {LyricsPanel} from './LyricsPanel';
 import {PlayerControls} from './PlayerControls';
@@ -12,11 +13,12 @@ export function FullPlayer() {
 
   return (
     <section aria-label="沉浸式播放器" className="full-player" role="region">
-      {backdropUrl ? (
-        <img alt="" aria-hidden="true" className="full-player__backdrop" src={backdropUrl} />
-      ) : (
-        <div aria-hidden="true" className="full-player__backdrop full-player__backdrop--fallback" />
-      )}
+      <MediaImage
+        alt=""
+        className="full-player__backdrop"
+        fallbackLabel={currentTrack.title}
+        src={backdropUrl}
+      />
       <div aria-hidden="true" className="full-player__shade" />
 
       <div className="full-player__shell">

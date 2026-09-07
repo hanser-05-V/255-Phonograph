@@ -1,4 +1,4 @@
-import {cleanup, screen} from '@testing-library/react';
+import {cleanup, fireEvent, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {
@@ -13,6 +13,28 @@ afterEach(() => {
 });
 
 describe('MusicPage', () => {
+  it('keeps ordinary pages clear of the fixed mini player', () => {
+    renderPublic('/music', libraryFixture);
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveClass('page-with-mini-player');
+    expect(window.getComputedStyle(main).paddingBottom).not.toBe('0px');
+  });
+
+  it('falls back from a broken song cover without removing playback', () => {
+    renderPublic('/music', {
+      ...libraryFixture,
+      songs: libraryFixture.songs.map((song, index) => index === 0
+        ? {...song, coverUrl: '/api/media/broken-cover'}
+        : song),
+    });
+
+    fireEvent.error(screen.getByRole('img', {name: '初光 封面'}));
+
+    expect(screen.getByRole('img', {name: '初光 默认封面'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: '播放 初光'})).toBeEnabled();
+  });
+
   it('plays inside the current result set and restores the full queue after reset', async () => {
     const user = userEvent.setup();
     renderPublic('/music', libraryFixture);

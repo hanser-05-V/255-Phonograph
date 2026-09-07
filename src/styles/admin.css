@@ -521,7 +521,7 @@
   margin-top: 20px;
 }
 
-.admin-page :is(input, button, a):focus-visible,
+.admin-page :is(input, button, a, select, textarea):focus-visible,
 .admin-page [role='alert']:focus {
   outline: 3px solid rgba(232, 192, 106, 0.55);
   outline-offset: 3px;
@@ -563,6 +563,18 @@
   .admin-section-heading--actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-status-tabs,
+  .admin-row-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-status-tabs [role='tab'],
+  .admin-row-actions :is(a, button),
+  .admin-section-heading--actions > a {
+    width: 100%;
   }
 
   .admin-song-table thead {

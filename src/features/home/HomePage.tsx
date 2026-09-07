@@ -49,7 +49,7 @@ export function HomePage() {
   }, [library, trackById]);
 
   return (
-    <main className="home-page" id="home">
+    <main className="home-page page-with-mini-player" id="home">
       <HomeHeader />
       <div className="home-page__content">
         <section aria-label="今日听歌" className="home-dashboard">

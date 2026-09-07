@@ -1,5 +1,6 @@
 import {Link, useSearchParams} from 'react-router-dom';
 import {useState} from 'react';
+import {MediaImage} from '../../components/MediaImage';
 import {usePlayer} from '../player/usePlayer';
 import {useLibrary} from './LibraryProvider';
 import {filterLibrarySongs} from './music-filter';
@@ -44,7 +45,7 @@ export function MusicPage() {
   };
 
   return (
-    <main aria-labelledby="music-page-title" className="music-page">
+    <main aria-labelledby="music-page-title" className="music-page page-with-mini-player">
       <header className="music-page__header">
         <Link className="music-page__brand" to="/">255留音机</Link>
         <div>
@@ -111,11 +112,12 @@ export function MusicPage() {
           <div className="music-page__song-list">
             {results.map((song) => (
               <article className="music-song-card" key={song.id}>
-                {song.coverUrl ? (
-                  <img alt="" src={song.coverUrl} />
-                ) : (
-                  <div aria-hidden="true" className="music-song-card__cover">255</div>
-                )}
+                <MediaImage
+                  alt={`${song.title} 封面`}
+                  className="music-song-card__cover"
+                  fallbackLabel={song.title}
+                  src={song.coverUrl}
+                />
                 <div className="music-song-card__details">
                   <h3>{song.title}</h3>
                   <p>{song.artist}</p>

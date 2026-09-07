@@ -18,6 +18,32 @@ body {
     linear-gradient(125deg, #081822 0%, #263342 52%, #503f35 100%);
 }
 
+.media-image__fallback {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  color: rgba(255, 248, 233, 0.78);
+  background:
+    radial-gradient(circle at 70% 25%, rgba(238, 196, 130, 0.55), transparent 22%),
+    linear-gradient(135deg, #ddb77c, #3b7a82 54%, #14252e);
+  font-family: Georgia, serif;
+}
+
+.media-image__fallback span {
+  font-size: 24px;
+  font-weight: 300;
+}
+
+.media-image__fallback small {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
 button,
 input {
   font: inherit;
@@ -27,9 +53,28 @@ button {
   color: inherit;
 }
 
-.home-page {
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid #f1c96f;
+  outline-offset: 3px;
+}
+
+.page-with-mini-player {
   min-height: 100vh;
   padding: 0 40px 208px;
+}
+
+.public-library-state {
+  display: grid;
+  min-height: 100vh;
+  padding: 32px;
+  place-items: center;
+  text-align: center;
+}
+
+.public-library-state p {
+  margin: 0;
+  color: rgba(247, 242, 232, 0.78);
+  font-size: clamp(18px, 3vw, 28px);
 }
 
 .home-header,
@@ -422,10 +467,17 @@ button {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: none;
+  cursor: pointer;
 }
 
 .mini-player__track img,
-.mini-player__cover-placeholder {
+.mini-player__track .media-image__fallback {
   width: 64px;
   height: 64px;
   flex: 0 0 64px;
@@ -555,7 +607,7 @@ button {
   transform: scale(1.08);
 }
 
-.full-player__backdrop--fallback {
+.full-player__backdrop.media-image__fallback {
   background:
     radial-gradient(circle at 25% 42%, rgba(53, 142, 154, 0.78), transparent 32%),
     radial-gradient(circle at 76% 35%, rgba(172, 119, 75, 0.58), transparent 34%),
@@ -672,7 +724,7 @@ button {
   object-fit: cover;
 }
 
-.disc__art--fallback {
+.disc__art.media-image__fallback {
   background:
     radial-gradient(circle at 34% 32%, rgba(239, 215, 173, 0.94), transparent 18%),
     radial-gradient(circle, #77b5b7, #366f78 54%, #152a34);
@@ -742,36 +794,27 @@ button {
   backdrop-filter: blur(20px);
 }
 
-.disc-artwork__cover img,
-.disc-artwork__fallback {
-  display: block;
+.disc-artwork__cover > img,
+.disc-artwork__cover > .media-image__fallback {
   width: 100%;
   height: 100%;
   border-radius: 3px;
   object-fit: cover;
 }
 
-.disc-artwork__fallback {
-  position: relative;
-  display: grid;
-  overflow: hidden;
-  place-items: center;
-  background:
-    radial-gradient(circle at 70% 25%, rgba(238, 196, 130, 0.55), transparent 22%),
-    linear-gradient(135deg, #ddb77c, #3b7a82 54%, #14252e);
-  font-family: Georgia, serif;
+.disc-artwork__cover > img {
+  display: block;
 }
 
-.disc-artwork__fallback span {
+.disc-artwork__cover > .media-image__fallback span {
   font-size: clamp(130px, 13vw, 200px);
   font-weight: 300;
 }
 
-.disc-artwork__fallback small {
+.disc-artwork__cover > .media-image__fallback small {
   position: absolute;
   right: 22px;
   bottom: 18px;
-  font-family: inherit;
   font-size: 13px;
   letter-spacing: 0.35em;
 }
@@ -925,7 +968,7 @@ button {
 }
 
 @media (max-width: 1023px) {
-  .home-page {
+  .page-with-mini-player {
     padding: 0 24px 260px;
   }
 
@@ -1048,13 +1091,14 @@ button {
     animation: none;
   }
 
-  .lyrics-panel__line {
+  .lyrics-panel__line,
+  .spectrum__bar {
     transition: none;
   }
 }
 
 @media (max-width: 600px) {
-  .home-page {
+  .page-with-mini-player {
     padding: 0 16px 260px;
   }
 

@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {validateSongDraftInput} from './song-validation.js';
+import {publishabilityIssues, validateSongDraftInput} from './song-validation.js';
 
 const validInput = {
   title: ' 初光 ',
@@ -45,5 +45,22 @@ describe('song draft validation', () => {
       .toThrowError('来源链接必须使用 http 或 https');
     expect(() => validateSongDraftInput({...validInput, isFeatured: 1}))
       .toThrowError('歌曲草稿字段类型无效');
+  });
+});
+
+describe('song publishability', () => {
+  it('accepts a stored audio/x-m4a file as publishable audio', () => {
+    expect(publishabilityIssues({
+      title: '初光',
+      artist: 'Hanser',
+      durationSeconds: 123,
+      lyricsText: '',
+      audio: {
+        originalName: 'song.m4a',
+        mimeType: 'audio/x-m4a',
+        byteSize: 1024,
+      },
+      cover: null,
+    })).not.toContain('audio');
   });
 });

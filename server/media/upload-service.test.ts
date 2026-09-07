@@ -107,6 +107,27 @@ describe('UploadService', () => {
     expect(db.prepare('SELECT COUNT(*) AS count FROM media_objects').get()).toEqual({count: 0});
   });
 
+  it('keeps the audio/x-m4a MIME detected for a standard M4A upload', async () => {
+    const service = createService({
+      detected: {ext: 'm4a', mime: 'audio/x-m4a'},
+      duration: 123,
+    });
+
+    const result = await service.ingestAudio('session-a', {
+      originalName: 'song.m4a',
+      declaredMime: 'audio/mp4',
+      source: chunks('m4a-data'),
+    });
+
+    expect(result).toMatchObject({
+      originalName: 'song.m4a',
+      mimeType: 'audio/x-m4a',
+      durationSeconds: 123,
+    });
+    expect(db.prepare('SELECT mime_type FROM pending_uploads WHERE id = ?').get(result.uploadId))
+      .toEqual({mime_type: 'audio/x-m4a'});
+  });
+
   it('removes only the current temporary file when the client aborts', async () => {
     const service = createService();
     const controller = new AbortController();

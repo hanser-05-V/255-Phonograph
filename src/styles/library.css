@@ -1,6 +1,6 @@
 .music-page {
-  min-height: 100vh;
-  padding: 0 40px 208px;
+  width: min(100%, 1440px);
+  margin: 0 auto;
 }
 
 .music-page__header {
@@ -169,6 +169,10 @@
   background: linear-gradient(135deg, #ddb77c, #3b7a82 54%, #14252e);
 }
 
+.music-song-card__cover small {
+  display: none;
+}
+
 .music-song-card__details {
   min-width: 0;
 }
@@ -225,10 +229,6 @@
 }
 
 @media (max-width: 1023px) {
-  .music-page {
-    padding: 0 24px 260px;
-  }
-
   .music-page__header {
     grid-template-columns: minmax(0, 1fr) auto;
     min-height: 0;
@@ -255,10 +255,6 @@
 }
 
 @media (max-width: 600px) {
-  .music-page {
-    padding: 0 16px 260px;
-  }
-
   .music-page__header {
     gap: 18px;
   }

@@ -16,11 +16,12 @@ npm run dev
 本地正式运行前先构建双端，再启动服务：
 
 ```powershell
-npm run build
-npm start
+npm run build && npm start
 ```
 
-服务端默认把数据库和媒体目录放在项目之外：Windows 使用 `%LOCALAPPDATA%\255-phonograph`，其他环境使用用户目录下的 `.255-phonograph`。需要测试隔离时可设置 `PHONOGRAPH_DATA_DIR`；可公开的配置键见 `.env.example`。
+服务端默认把真实数据放在项目之外：Windows 使用 `%LOCALAPPDATA%\255-phonograph`，其他环境使用用户目录下的 `.255-phonograph`。其中 `library.sqlite` 保存曲库和管理配置，`media\objects` 保存正式媒体，`media\tmp` 保存待确认上传；这些内容都不会进入 Git。需要测试隔离或迁移数据位置时，可在启动前设置绝对路径 `PHONOGRAPH_DATA_DIR`；可公开的配置键见 `.env.example`。
+
+开发模式访问 Vite 输出的地址；生产构建启动后访问 `http://127.0.0.1:3001`。普通页面为 `/` 和 `/music`，管理后台固定为 `/admin`，且不会出现在普通导航中。
 
 完成修改后可运行：
 

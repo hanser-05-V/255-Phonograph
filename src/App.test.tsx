@@ -1,4 +1,4 @@
-import {cleanup, render, screen, within} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter, useNavigate} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -79,6 +79,15 @@ function mockLibraryScenario(scenario: 'pending' | 'network' | 'http' | 'empty' 
   vi.stubGlobal('fetch', vi.fn(responses[scenario]));
 }
 
+function mockLibraryWithCover() {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+    ...readyLibrary,
+    songs: readyLibrary.songs.map((song, index) => index === 0
+      ? {...song, coverUrl: '/api/media/broken-cover'}
+      : song),
+  })));
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
@@ -101,6 +110,14 @@ describe('App', () => {
     renderApp();
 
     expect(await screen.findByRole('status')).toHaveTextContent(message);
+    const stateMain = screen.getByRole('main', {name: '曲库状态'});
+    expect(stateMain).toHaveAttribute('aria-busy', String(scenario === 'pending'));
+    expect(window.getComputedStyle(stateMain).minHeight).toBe('100vh');
+    for (const otherMessage of [
+      '正在加载曲库…', '本地服务未运行', '曲库加载失败', '曲库还是空的',
+    ].filter((candidate) => candidate !== message)) {
+      expect(screen.queryByText(otherMessage)).not.toBeInTheDocument();
+    }
     expect(screen.queryByRole('region', {name: '迷你播放器'})).not.toBeInTheDocument();
   });
 
@@ -119,7 +136,9 @@ describe('App', () => {
     renderApp();
 
     await screen.findByRole('navigation', {name: '主导航'});
-    expect(window.getComputedStyle(screen.getByRole('main')).paddingBottom).toBe('208px');
+    const main = screen.getByRole('main');
+    expect(main).toHaveClass('page-with-mini-player');
+    expect(window.getComputedStyle(main).paddingBottom).toBe('208px');
   });
 
   it('shares expansion state between the persistent and full players', async () => {
@@ -132,6 +151,44 @@ describe('App', () => {
 
     expect(screen.getByRole('region', {name: '沉浸式播放器'})).toBeInTheDocument();
     expect(miniPlayer).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('offers a keyboard-accessible control for expanding the player', async () => {
+    mockLibraryScenario('ready');
+    const user = userEvent.setup();
+    renderApp();
+
+    const miniPlayer = await screen.findByRole('region', {name: '迷你播放器'});
+    const expand = within(miniPlayer).getByRole('button', {name: '展开播放器'});
+    expand.focus();
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('region', {name: '沉浸式播放器'})).toBeInTheDocument();
+  });
+
+  it('keeps player controls when the current cover fails', async () => {
+    mockLibraryWithCover();
+    renderApp();
+
+    const miniPlayer = await screen.findByRole('region', {name: '迷你播放器'});
+    fireEvent.error(within(miniPlayer).getByRole('img', {name: '初光 封面'}));
+
+    expect(within(miniPlayer).getByRole('img', {name: '初光 默认封面'})).toBeInTheDocument();
+    expect(within(miniPlayer).getByRole('button', {name: '播放'})).toBeEnabled();
+  });
+
+  it('uses the same cover fallback in the expanded player', async () => {
+    mockLibraryWithCover();
+    const user = userEvent.setup();
+    renderApp();
+
+    const miniPlayer = await screen.findByRole('region', {name: '迷你播放器'});
+    await user.click(within(miniPlayer).getByText('初光'));
+    const fullPlayer = screen.getByRole('region', {name: '沉浸式播放器'});
+    fireEvent.error(within(fullPlayer).getByRole('img', {name: '初光 封面'}));
+
+    expect(within(fullPlayer).getByRole('img', {name: '初光 默认封面'})).toBeInTheDocument();
+    expect(within(fullPlayer).getByRole('button', {name: '播放'})).toBeEnabled();
   });
 
   it('keeps the admin route independent from public library failures', () => {
