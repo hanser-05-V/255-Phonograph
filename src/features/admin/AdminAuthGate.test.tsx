@@ -1,4 +1,4 @@
-import {cleanup, screen} from '@testing-library/react';
+import {cleanup, screen, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {adminApi} from '../../api/admin-api';
@@ -53,7 +53,7 @@ describe('AdminAuthGate', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('无法连接本地管理服务');
-    expect(alert).toHaveFocus();
+    await waitFor(() => expect(alert).toHaveFocus());
     await user.click(screen.getByRole('button', {name: '重试'}));
 
     expect(await screen.findByRole('navigation', {name: '管理导航'})).toBeInTheDocument();
