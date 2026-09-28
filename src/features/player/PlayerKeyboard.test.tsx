@@ -125,6 +125,7 @@ describe('Player keyboard and error behavior', () => {
     await screen.findByRole('region', {name: '迷你播放器'});
 
     const getController = () => controller;
+    await waitFor(() => expect(getController()).not.toBeNull());
     const audioController = getController();
     if (!audioController) {
       throw new Error('Expected the shared audio controller to be ready.');

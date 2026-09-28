@@ -34,8 +34,19 @@ const draft: AdminSong = {
 
 let restoreXhr: (() => void) | undefined;
 
+async function uploadReplacementAudio(user: ReturnType<typeof userEvent.setup>) {
+  await user.upload(screen.getByLabelText('音频文件'), new File(['new'], 'new.mp3', {
+    type: 'audio/mpeg',
+  }));
+  act(() => createdXhrs[0].respond(201, {
+    uploadId: 'upload-new', originalName: 'new.mp3', mimeType: 'audio/mpeg',
+    byteSize: 3, durationSeconds: 150,
+  }));
+  await screen.findByText('识别时长：2:30');
+}
+
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   restoreXhr = installFakeXhr();
   vi.mocked(adminApi.getAuthStatus).mockResolvedValue({needsSetup: false, authenticated: true});
   vi.mocked(adminApi.listCategories).mockResolvedValue([category]);
@@ -167,6 +178,66 @@ describe('SongForm', () => {
     await user.click(screen.getByRole('button', {name: '保存修改'}));
     const latestPayload = vi.mocked(adminApi.saveSong).mock.calls.at(-1)?.[1];
     expect(latestPayload).not.toHaveProperty('audioUploadId');
+  });
+
+  it('keeps both approvals when replacing audio on a duplicate song and resets them after saving', async () => {
+    vi.mocked(adminApi.saveSong).mockImplementation(async (_songId, input) => {
+      if (!input.confirmDuplicate) {
+        throw new ApiError(409, 'DUPLICATE_CONFIRMATION_REQUIRED', '存在同名同歌手歌曲');
+      }
+      if (input.audioUploadId && !input.confirmAudioReplacement) {
+        throw new ApiError(409, 'AUDIO_REPLACEMENT_CONFIRMATION_REQUIRED', '替换音频文件需要额外确认');
+      }
+      return draft;
+    });
+    const user = userEvent.setup();
+    renderAdmin('/admin/songs/song-255');
+    await screen.findByDisplayValue('初光');
+    await uploadReplacementAudio(user);
+    await user.click(screen.getByRole('button', {name: '保存修改'}));
+
+    const duplicateDialog = await screen.findByRole('dialog', {name: '确认重复歌曲'});
+    await user.click(within(duplicateDialog).getByRole('button', {name: '仍然保存'}));
+    const audioDialog = await screen.findByRole('dialog', {name: '确认替换音频'});
+    await user.click(within(audioDialog).getByRole('button', {name: '确认替换并保存'}));
+
+    expect(await screen.findByText('修改已保存')).toHaveAttribute('role', 'status');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(adminApi.saveSong).toHaveBeenCalledTimes(3);
+    expect(adminApi.saveSong).toHaveBeenLastCalledWith('song-255', expect.objectContaining({
+      audioUploadId: 'upload-new', confirmDuplicate: true, confirmAudioReplacement: true,
+    }), expect.any(AbortSignal));
+
+    await user.click(screen.getByRole('button', {name: '保存修改'}));
+    expect(await screen.findByRole('dialog', {name: '确认重复歌曲'})).toBeInTheDocument();
+    const nextPayload = vi.mocked(adminApi.saveSong).mock.calls.at(-1)?.[1];
+    expect(nextPayload).toMatchObject({confirmDuplicate: false, confirmAudioReplacement: false});
+    expect(nextPayload).not.toHaveProperty('audioUploadId');
+  });
+
+  it('does not reuse approvals after cancelling a combined confirmation and editing the song', async () => {
+    vi.mocked(adminApi.saveSong)
+      .mockRejectedValueOnce(new ApiError(409, 'DUPLICATE_CONFIRMATION_REQUIRED', '存在同名同歌手歌曲'))
+      .mockRejectedValueOnce(new ApiError(409, 'AUDIO_REPLACEMENT_CONFIRMATION_REQUIRED', '替换音频文件需要额外确认'))
+      .mockRejectedValueOnce(new ApiError(409, 'DUPLICATE_CONFIRMATION_REQUIRED', '存在同名同歌手歌曲'));
+    const user = userEvent.setup();
+    renderAdmin('/admin/songs/song-255');
+    await screen.findByDisplayValue('初光');
+    await uploadReplacementAudio(user);
+    await user.click(screen.getByRole('button', {name: '保存修改'}));
+    const duplicateDialog = await screen.findByRole('dialog', {name: '确认重复歌曲'});
+    await user.click(within(duplicateDialog).getByRole('button', {name: '仍然保存'}));
+    const audioDialog = await screen.findByRole('dialog', {name: '确认替换音频'});
+    await user.click(within(audioDialog).getByRole('button', {name: '取消'}));
+    await user.type(screen.getByLabelText('歌名'), ' 新版本');
+    await user.click(screen.getByRole('button', {name: '保存修改'}));
+
+    expect(await screen.findByRole('dialog', {name: '确认重复歌曲'})).toBeInTheDocument();
+    expect(screen.queryByText('修改已保存')).not.toBeInTheDocument();
+    expect(adminApi.saveSong).toHaveBeenLastCalledWith('song-255', expect.objectContaining({
+      title: '初光 新版本', audioUploadId: 'upload-new',
+      confirmDuplicate: false, confirmAudioReplacement: false,
+    }), expect.any(AbortSignal));
   });
 
   it('puts LRC upload errors next to the editable lyrics field', async () => {

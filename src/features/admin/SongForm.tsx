@@ -63,6 +63,7 @@ export function SongForm() {
   const [dirty, setDirty] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const recentSaveRef = useRef<{key: string; at: number} | null>(null);
+  const acceptedConfirmationsRef = useRef(new Set<Exclude<Confirmation, null>>());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -108,12 +109,13 @@ export function SongForm() {
     .map(({line, message}) => `第 ${line} 行：${message}`).join('；'), [lyricsErrors]);
 
   function update<K extends keyof FormValues>(field: K, value: FormValues[K]) {
+    acceptedConfirmationsRef.current.clear();
     setValues((current) => ({...current, [field]: value}));
     setDirty(true);
     setStatus('');
   }
 
-  function payload(confirm: Confirmation = null): SongDraftInput {
+  function payload(): SongDraftInput {
     return {
       title: values.title,
       artist: values.artist,
@@ -127,8 +129,8 @@ export function SongForm() {
       sourceUrl: values.sourceUrl,
       isFeatured: values.isFeatured,
       isLiveCover: values.isLiveCover,
-      confirmDuplicate: confirm === 'duplicate',
-      confirmAudioReplacement: confirm === 'audio-replacement',
+      confirmDuplicate: acceptedConfirmationsRef.current.has('duplicate'),
+      confirmAudioReplacement: acceptedConfirmationsRef.current.has('audio-replacement'),
     };
   }
 
@@ -140,6 +142,11 @@ export function SongForm() {
       now - recentSaveRef.current.at < 500
     ) return;
     if (requestRef.current || submitting) return;
+    if (confirm) {
+      acceptedConfirmationsRef.current.add(confirm);
+    } else {
+      acceptedConfirmationsRef.current.clear();
+    }
     recentSaveRef.current = {key: saveKey, at: now};
     const controller = new AbortController();
     requestRef.current = controller;
@@ -147,11 +154,12 @@ export function SongForm() {
     setError('');
     setStatus('');
     try {
-      const saved = await adminApi.saveSong(songId, payload(confirm), controller.signal);
+      const saved = await adminApi.saveSong(songId, payload(), controller.signal);
       if (controller.signal.aborted) return;
       setSong(saved);
       setValues(valuesFromSong(saved));
       setLyricsErrors([]);
+      acceptedConfirmationsRef.current.clear();
       setConfirmation(null);
       setDirty(false);
       setStatus(songId ? '修改已保存' : '草稿已保存');
@@ -179,6 +187,11 @@ export function SongForm() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void save();
+  }
+
+  function cancelConfirmation() {
+    acceptedConfirmationsRef.current.clear();
+    setConfirmation(null);
   }
 
   const title = songId ? '编辑歌曲' : '新建歌曲';
@@ -289,7 +302,7 @@ export function SongForm() {
           busy={submitting}
           confirmLabel="仍然保存"
           description="存在同名同歌手歌曲。确认这是另一个版本后仍可保存。"
-          onCancel={() => setConfirmation(null)}
+          onCancel={cancelConfirmation}
           onConfirm={() => void save('duplicate')}
           title="确认重复歌曲"
         />
@@ -299,7 +312,7 @@ export function SongForm() {
           busy={submitting}
           confirmLabel="确认替换并保存"
           description="替换音频后歌曲编号保持不变，旧音频将由系统清理。"
-          onCancel={() => setConfirmation(null)}
+          onCancel={cancelConfirmation}
           onConfirm={() => void save('audio-replacement')}
           title="确认替换音频"
         />

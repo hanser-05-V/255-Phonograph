@@ -18,7 +18,7 @@ export function AdminApp() {
       <AdminAuthGate>
         {({logout}) => (
           <Routes>
-            <Route path="/admin" element={<AdminLayout onLogout={logout} />}>
+            <Route element={<AdminLayout onLogout={logout} />}>
               <Route
                 index
                 element={<AdminSongListPage />}

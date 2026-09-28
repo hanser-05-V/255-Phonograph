@@ -1,4 +1,4 @@
-import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter, useNavigate} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -225,7 +225,7 @@ describe('App', () => {
     render(<MemoryRouter><AppWithPublicNavigation /></MemoryRouter>);
 
     await screen.findByRole('navigation', {name: '主导航'});
-    expect(audioConstructor).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(audioConstructor).toHaveBeenCalledTimes(1));
     await user.click(screen.getByRole('button', {name: '打开音乐馆'}));
 
     expect(await screen.findByRole('main', {name: '音乐馆'})).toBeInTheDocument();

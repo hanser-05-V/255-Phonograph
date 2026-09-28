@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-03-local-music-library-admin-design.md`（批准提交：`b294e86`）
 
+**2026-09-28 批准调整：** 回收站“永久删除”改为点击列表按钮直接执行，取消确认弹窗与手工输入歌曲编号。页面保留不可恢复提示、防重复提交和失败重试；管理员权限、回收站状态限制及现有接口编号校验不变。下列相关步骤已同步，其他任务范围不变。
+
 ## Global Constraints
 
 - 只在现有工作树 `E:\codex\hanser\.worktrees\pc-music-player`、分支 `codex/pc-music-player` 中实施；不得在主仓库 `main` 分支直接开发，也不得重建工作树。
@@ -1055,7 +1057,7 @@ it('deletes the trashed record first and queues failed media cleanup', async () 
 });
 ```
 
-同时断言非回收站歌曲、错误确认 ID 和缺少确认均不能永久删除；已删除歌曲不会因文件清理失败重新出现。
+同时断言非回收站歌曲、错误 `confirmSongId` 和缺少该字段均不能永久删除；前端点击删除时自动携带所选歌曲的稳定 ID，无须用户手工输入。已删除歌曲不会因文件清理失败重新出现。
 
 - [ ] **Step 3: 运行歌曲服务测试并确认 RED**
 
@@ -1087,7 +1089,7 @@ Expected: PASS。把 DTO 映射、事务体和媒体清理分成可独立测试�
 
 - [ ] **Step 8: 规格符合性审查**
 
-用状态转换表逐项对照规格第 4.2–4.5、6.3、7 节；确认发布必填、全部可选字段、单分类/多标签、同名允许但提醒、稳定 ID、音频替换确认、下架→回收站→二次确认删除和清理失败不可见均有测试。
+用状态转换表逐项对照规格第 4.2–4.5、6.3、7 节；确认发布必填、全部可选字段、单分类/多标签、同名允许但提醒、稳定 ID、音频替换确认、下架→回收站→点击永久删除和清理失败不可见均有测试。
 
 - [ ] **Step 9: 代码质量审查**
 
@@ -1613,7 +1615,7 @@ it('keeps form values when save fails and confirms duplicates and audio replacem
   expect(screen.getByLabelText('歌名')).toHaveValue('初光');
 });
 
-it('requires the full unpublish-trash-confirm-delete path', async () => {
+it('requires the full unpublish-trash-delete path', async () => {
   renderAdmin('/admin');
   const row = await screen.findByRole('row', {name: /已发布歌曲/});
   expect(within(row).getByRole('button', {name: '下架'})).toBeInTheDocument();
@@ -1621,7 +1623,7 @@ it('requires the full unpublish-trash-confirm-delete path', async () => {
 });
 ```
 
-覆盖状态 tabs、草稿发布错误汇总、下架、恢复、回收站、永久删除输入歌名/确认 ID、分类单选、标签多选、来源字段、两个首页标记和 audio replacement confirmation。
+覆盖状态 tabs、草稿发布错误汇总、下架、恢复、回收站、点击列表按钮直接永久删除（无弹窗或编号输入、正确目标、防重复提交、失败后重试）、分类单选、标签多选、来源字段、两个首页标记和 audio replacement confirmation。
 
 - [ ] **Step 3: 运行后台歌曲测试并确认 RED**
 
@@ -1639,7 +1641,7 @@ XHR URL 按 kind 固定映射；`upload.onprogress` 计算 `Math.round(loaded / 
 
 - [ ] **Step 6: 实现列表、回收站和刷新行为**
 
-歌曲列表按四个状态查询并显示歌名、歌手、状态、更新时间；每种状态只显示允许动作。发布/下架/编辑成功后刷新管理列表，但不假装推送普通页面。回收站恢复到 `status_before_trash`；永久删除 dialog 显示不可恢复警告，并要求用户输入歌曲稳定 ID 后才启用按钮。所有确认可用键盘完成。
+歌曲列表按四个状态查询并显示歌名、歌手、状态、更新时间；每种状态只显示允许动作。发布/下架/编辑成功后刷新管理列表，但不假装推送普通页面。回收站恢复到 `status_before_trash`；点击列表中的“永久删除”按钮直接发起删除，不打开 dialog、不要求手工输入编号，请求自动携带所选歌曲的稳定 ID。页面保留“删除后不可恢复”提示，请求期间禁用行操作，成功后刷新列表，失败时保留歌曲并允许重试。所有操作可用键盘完成。
 
 - [ ] **Step 7: GREEN、重构与回归**
 
@@ -2120,7 +2122,7 @@ Expected: 一个命令同时启动 Vite 和 Fastify；浏览器能从 Vite 地�
 
 - [ ] **Step 7: 执行完整业务验收链**
 
-使用测试专用 `PHONOGRAPH_DATA_DIR` 启动，完整执行：首次设置密码 → 上传一首音频草稿（观察进度）→ 取消一次并重传 → 填资料/封面/LRC/分类/标签 → 发布 → 首页分区出现 → 音乐馆按歌名搜索并筛选 → 点击后验证结果队列 next/previous 循环 → 展开播放器检查拖动、音量、静音、歌词、频谱、快捷键和自动下一首 → 刷新后恢复歌曲/进度/音量/队列但保持暂停 → 下架 → 刷新普通曲库后消失 → 入回收站并恢复 → 再下架/入回收站/二次确认永久删除。
+使用测试专用 `PHONOGRAPH_DATA_DIR` 启动，完整执行：首次设置密码 → 上传一首音频草稿（观察进度）→ 取消一次并重传 → 填资料/封面/LRC/分类/标签 → 发布 → 首页分区出现 → 音乐馆按歌名搜索并筛选 → 点击后验证结果队列 next/previous 循环 → 展开播放器检查拖动、音量、静音、歌词、频谱、快捷键和自动下一首 → 刷新后恢复歌曲/进度/音量/队列但保持暂停 → 下架 → 刷新普通曲库后消失 → 入回收站并恢复 → 再下架/入回收站/点击“永久删除”直接删除（无弹窗或编号输入）。
 
 若应用内浏览器不可用或报告可信依赖路径错误，保持本地服务运行，不切换到未经授权的独立自动化工具，不声称浏览器验收成功；把上述三视口和业务链逐项列为“需用户手动检查”。
 

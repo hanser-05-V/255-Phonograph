@@ -44,6 +44,64 @@ describe('AdminAuthGate', () => {
     expect(screen.getByRole('heading', {name: '歌曲管理'})).toBeInTheDocument();
   });
 
+  it.each([
+    {authenticated: false, heading: '登录管理后台'},
+    {authenticated: true, heading: '歌曲管理'},
+  ])('rechecks an already-configured password and shows $heading', async ({authenticated, heading}) => {
+    vi.mocked(adminApi.getAuthStatus)
+      .mockResolvedValueOnce({needsSetup: true, authenticated: false})
+      .mockResolvedValueOnce({needsSetup: false, authenticated});
+    vi.mocked(adminApi.setup).mockRejectedValue(new ApiError(
+      409, 'ALREADY_SETUP', 'The administrator password is already configured.',
+    ));
+    const user = userEvent.setup();
+    renderAdmin('/admin');
+
+    await user.type(await screen.findByLabelText('管理密码'), 'owner-password');
+    await user.type(screen.getByLabelText('确认管理密码'), 'owner-password');
+    await user.click(screen.getByRole('button', {name: '创建并进入后台'}));
+
+    expect(await screen.findByRole('heading', {name: heading})).toBeInTheDocument();
+    expect(screen.queryByRole('heading', {name: '创建管理密码'})).not.toBeInTheDocument();
+    expect(screen.queryByText('The administrator password is already configured.')).not.toBeInTheDocument();
+    expect(adminApi.getAuthStatus).toHaveBeenCalledTimes(2);
+    expect(adminApi.setup).toHaveBeenCalledTimes(1);
+    expect(adminApi.login).not.toHaveBeenCalled();
+
+    if (!authenticated) {
+      vi.mocked(adminApi.login).mockResolvedValue({authenticated: true});
+      await user.clear(screen.getByLabelText('管理密码'));
+      await user.type(screen.getByLabelText('管理密码'), 'existing-password');
+      await user.click(screen.getByRole('button', {name: '登录'}));
+      expect(await screen.findByRole('navigation', {name: '管理导航'})).toBeInTheDocument();
+      expect(adminApi.login).toHaveBeenCalledWith('existing-password', expect.any(AbortSignal));
+      expect(adminApi.setup).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('allows retry when checking the session after a setup conflict fails', async () => {
+    vi.mocked(adminApi.getAuthStatus)
+      .mockResolvedValueOnce({needsSetup: true, authenticated: false})
+      .mockRejectedValueOnce(new ApiError(0, 'SERVICE_UNAVAILABLE', '本地服务未运行'))
+      .mockResolvedValueOnce({needsSetup: false, authenticated: false});
+    vi.mocked(adminApi.setup).mockRejectedValue(new ApiError(
+      409, 'ALREADY_SETUP', 'The administrator password is already configured.',
+    ));
+    const user = userEvent.setup();
+    renderAdmin('/admin');
+
+    await user.type(await screen.findByLabelText('管理密码'), 'owner-password');
+    await user.type(screen.getByLabelText('确认管理密码'), 'owner-password');
+    await user.click(screen.getByRole('button', {name: '创建并进入后台'}));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('无法连接本地管理服务');
+    expect(screen.queryByRole('navigation', {name: '管理导航'})).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', {name: '重试'}));
+    expect(await screen.findByRole('heading', {name: '登录管理后台'})).toBeInTheDocument();
+    expect(adminApi.getAuthStatus).toHaveBeenCalledTimes(3);
+    expect(adminApi.setup).toHaveBeenCalledTimes(1);
+  });
+
   it('shows an unavailable state and retries the status request', async () => {
     vi.mocked(adminApi.getAuthStatus)
       .mockRejectedValueOnce(new ApiError(0, 'SERVICE_UNAVAILABLE', '本地服务未运行'))

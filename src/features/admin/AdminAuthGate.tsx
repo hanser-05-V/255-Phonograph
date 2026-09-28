@@ -79,6 +79,13 @@ export function AdminAuthGate({children}: AdminAuthGateProps) {
         setStage('authenticated');
       }
     } catch (error) {
+      if (
+        !signal?.aborted && stage === 'setup' &&
+        error instanceof ApiError && error.code === 'ALREADY_SETUP'
+      ) {
+        checkStatus();
+        return;
+      }
       if (!signal?.aborted && error instanceof ApiError && error.status === 401) {
         setStage('login');
       }

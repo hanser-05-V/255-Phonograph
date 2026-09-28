@@ -3,7 +3,6 @@ import type {AdminSong} from '../../../shared/contracts';
 import {adminApi} from '../../api/admin-api';
 import {ApiError} from '../../api/http';
 import {AsyncFormStatus} from './AsyncFormStatus';
-import {ConfirmDialog} from './ConfirmDialog';
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : '操作失败，请重试';
@@ -19,8 +18,6 @@ export function TrashPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
-  const [deleting, setDeleting] = useState<AdminSong | null>(null);
-  const [confirmation, setConfirmation] = useState('');
   const requestRef = useRef<AbortController | null>(null);
 
   const loadSongs = useCallback(async (signal: AbortSignal) => {
@@ -52,14 +49,10 @@ export function TrashPage() {
         const restored = await adminApi.restoreSong(song.id, controller.signal);
         if (!controller.signal.aborted) setStatus(`歌曲已恢复为${restoreLabel({...song, statusBeforeTrash: restored.status === 'draft' ? 'draft' : 'unlisted'})}`);
       } else {
-        await adminApi.permanentlyDeleteSong(song.id, confirmation, controller.signal);
+        await adminApi.permanentlyDeleteSong(song.id, song.id, controller.signal);
         if (!controller.signal.aborted) setStatus('歌曲已永久删除');
       }
       await loadSongs(controller.signal);
-      if (!controller.signal.aborted && action === 'delete') {
-        setDeleting(null);
-        setConfirmation('');
-      }
     } catch (actionError) {
       if (!controller.signal.aborted) setError(errorMessage(actionError));
     } finally {
@@ -72,7 +65,7 @@ export function TrashPage() {
     <div className="admin-management-page">
       <header className="admin-section-heading">
         <h1>回收站</h1>
-        <p>恢复歌曲，或在核对稳定歌曲编号后永久删除。</p>
+        <p>可以恢复歌曲；点击“永久删除”将立即删除歌曲，删除后不可恢复。</p>
       </header>
       <AsyncFormStatus error={error} errorId="trash-error" focusError status={status} />
       {loading ? <p role="status">正在加载回收站…</p> : null}
@@ -89,38 +82,12 @@ export function TrashPage() {
                 <td data-label="歌曲编号"><code>{song.id}</code></td>
                 <td data-label="操作"><div className="admin-row-actions">
                   <button disabled={busy} onClick={() => void run('restore', song)} type="button">恢复</button>
-                  <button disabled={busy} onClick={() => {
-                    setDeleting(song);
-                    setConfirmation('');
-                  }} type="button">永久删除</button>
+                  <button disabled={busy} onClick={() => void run('delete', song)} type="button">永久删除</button>
                 </div></td>
               </tr>
             ))}</tbody>
           </table>
         </div>
-      ) : null}
-      {deleting ? (
-        <ConfirmDialog
-          busy={busy}
-          busyLabel="正在永久删除…"
-          confirmDisabled={confirmation !== deleting.id}
-          confirmLabel="永久删除"
-          description={`此操作不可恢复。请输入稳定歌曲编号 ${deleting.id} 后继续。`}
-          onCancel={() => {
-            setDeleting(null);
-            setConfirmation('');
-          }}
-          onConfirm={() => void run('delete', deleting)}
-          title="永久删除歌曲"
-        >
-          <label htmlFor="permanent-delete-confirmation">输入歌曲编号 {deleting.id} 以确认</label>
-          <input
-            autoComplete="off"
-            id="permanent-delete-confirmation"
-            onChange={(event) => setConfirmation(event.target.value)}
-            value={confirmation}
-          />
-        </ConfirmDialog>
       ) : null}
     </div>
   );
