@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdtemp, readdir, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 
 import {afterEach, describe, expect, it} from 'vitest';
 
@@ -9,6 +10,7 @@ import {buildApp} from '../app.js';
 import {openDatabase} from '../db/database.js';
 import {runMigrations} from '../db/migrate.js';
 import {LocalMediaStore} from '../storage/local-media-store.js';
+import {UploadCapacity} from '../storage/upload-capacity.js';
 import {
   createAuthenticatedTestContext,
   createTestContext,
@@ -66,6 +68,67 @@ describe('admin upload routes', () => {
   afterEach(async () => {
     await context?.dispose();
     context = undefined;
+  });
+
+  it('checks authorization before capacity and releases reservations after rejected uploads', async () => {
+    const capacity = new UploadCapacity('unused', async () => ({blocks: 1000, bavail: 330, bsize: 1024 * 1024}));
+    context = await createTestContext({uploadCapacity: capacity});
+    expect((await context.app.inject({method: 'POST', url: '/api/admin/uploads/audio'})).statusCode).toBe(401);
+    const session = await context.app.adminAuthService.setup('owner-password');
+    const headers = {cookie: `${context.config.sessionCookieName}=${session.token}`};
+    for (let i = 0; i < 3; i++) {
+      expect((await context.app.inject({method: 'POST', url: '/api/admin/uploads/audio', headers})).statusCode).toBe(415);
+    }
+    const release = await capacity.acquire(200 * 1024 * 1024);
+    const denied = await context.app.inject({method: 'POST', url: '/api/admin/uploads/audio', headers});
+    expect(denied.statusCode).toBe(507); expect(denied.json().error.code).toBe('INSUFFICIENT_STORAGE');
+    expect((await context.app.inject({method: 'DELETE', url: '/api/admin/uploads/missing', headers})).statusCode).toBe(404);
+    release();
+  });
+
+  it('releases capacity after invalid bytes, oversize, database failure and successful cancellation', async () => {
+    const capacity = new UploadCapacity('unused', async () => ({blocks: 1000, bavail: 330, bsize: 1024 * 1024}));
+    context = await createAuthenticatedTestContext({uploadCapacity: capacity});
+    const audio = {filename: 'test.mp3', mimeType: 'audio/mpeg', content: Buffer.from([0xff, 0xfb, 0x90, 0x64, 0, 0, 0, 0])};
+    for (const [url, file, status] of [
+      ['/api/admin/uploads/audio', {...audio, content: Buffer.from('invalid')}, 422],
+      ['/api/admin/uploads/cover', {filename: 'big.png', mimeType: 'image/png', content: Buffer.alloc(10 * 1024 * 1024 + 1)}, 413],
+    ] as const) {
+      const multipart = multipartPayload([file]);
+      const response = await context.app.inject({method: 'POST', url, headers: {...multipart.headers, cookie: context.cookie}, payload: multipart.body});
+      expect(response.statusCode).toBe(status); (await capacity.acquire(200 * 1024 * 1024))();
+    }
+    context.db.exec("CREATE TRIGGER fail_upload BEFORE INSERT ON pending_uploads BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END");
+    const multipart = multipartPayload([audio]);
+    expect((await context.app.inject({method: 'POST', url: '/api/admin/uploads/audio', headers: {...multipart.headers, cookie: context.cookie}, payload: multipart.body})).statusCode).toBe(500);
+    (await capacity.acquire(200 * 1024 * 1024))();
+    context.db.exec('DROP TRIGGER fail_upload');
+    const good = await context.app.inject({method: 'POST', url: '/api/admin/uploads/audio', headers: {...multipart.headers, cookie: context.cookie}, payload: multipart.body});
+    expect(good.statusCode).toBe(201);
+    expect((await context.app.inject({method: 'DELETE', url: `/api/admin/uploads/${good.json().uploadId}`, headers: {cookie: context.cookie}})).statusCode).toBe(204);
+    expect(await temporaryFiles(context)).toEqual([]); (await capacity.acquire(200 * 1024 * 1024))();
+  });
+
+  it('releases an in-flight upload reservation when the client disconnects', async () => {
+    let acquired!: () => void, released!: () => void;
+    const started = new Promise<void>(resolve => { acquired = resolve; });
+    const finished = new Promise<void>(resolve => { released = resolve; });
+    class ObservedCapacity extends UploadCapacity {
+      override async acquire(bytes: number) {
+        const release = await super.acquire(bytes); acquired();
+        return () => { release(); released(); };
+      }
+    }
+    const capacity = new ObservedCapacity('unused', async () => ({blocks: 1000, bavail: 330, bsize: 1024 * 1024}));
+    context = await createAuthenticatedTestContext({uploadCapacity: capacity});
+    const address = await context.app.listen({host: '127.0.0.1', port: 0});
+    const request = http.request(`${address}/api/admin/uploads/audio`, {method: 'POST', headers: {
+      cookie: context.cookie, 'content-type': 'multipart/form-data; boundary=test-disconnect',
+    }});
+    request.on('error', () => {});
+    request.write('--test-disconnect\r\nContent-Disposition: form-data; name="file"; filename="test.mp3"\r\nContent-Type: audio/mpeg\r\n\r\n');
+    await started; request.destroy(); await finished;
+    (await capacity.acquire(200 * 1024 * 1024))();
   });
 
   it.each([

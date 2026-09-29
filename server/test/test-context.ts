@@ -7,11 +7,12 @@ import type {FastifyInstance} from 'fastify';
 import type {DatabaseSync} from 'node:sqlite';
 
 import {buildApp} from '../app.js';
-import type {AppConfig} from '../config.js';
+import type {AppConfig, CloudConfig} from '../config.js';
 import {openDatabase} from '../db/database.js';
 import {runMigrations} from '../db/migrate.js';
 import {LocalMediaStore} from '../storage/local-media-store.js';
 import type {MediaStore} from '../storage/media-store.js';
+import type {UploadCapacity} from '../storage/upload-capacity.js';
 
 export type TestContext = {
   app: FastifyInstance;
@@ -82,6 +83,15 @@ export type SeededSongsAcrossStatuses = {
   emptyLyricSongId: string;
   draftSongId: string;
 };
+
+export function linkPublishedMedia(context: TestContext, media: SeededMedia, kind: 'audio' | 'cover'): string {
+  const id = randomUUID();
+  context.db.prepare(`INSERT INTO songs
+    (id, title, artist, status, duration_seconds, audio_media_id, cover_media_id, published_at, created_at, updated_at)
+    VALUES (?, '测试歌曲', '测试作者', 'published', 10, ?, ?, '2026-09-28', '2026-09-28', '2026-09-28')`)
+    .run(id, kind === 'audio' ? media.id : null, kind === 'cover' ? media.id : null);
+  return id;
+}
 
 export async function seedSongsAcrossStatuses(
   context: TestContext,
@@ -232,7 +242,7 @@ export async function seedSongsAcrossStatuses(
 }
 
 export async function createTestContext(
-  options: {secureCookies?: boolean; mediaStore?: MediaStore} = {},
+  options: {secureCookies?: boolean; mediaStore?: MediaStore; cloud?: CloudConfig; uploadCapacity?: UploadCapacity} = {},
 ): Promise<TestContext> {
   const dataDir = await mkdtemp(path.join(tmpdir(), 'phonograph-test-'));
   const mediaDir = path.join(dataDir, 'media');
@@ -256,6 +266,7 @@ export async function createTestContext(
 
   const mediaStore = options.mediaStore ?? new LocalMediaStore(mediaDir);
   const config: AppConfig = {
+    cloud: options.cloud,
     host: '127.0.0.1',
     port: 0,
     dataDir,
@@ -267,6 +278,7 @@ export async function createTestContext(
     config,
     database: db,
     secureCookies: options.secureCookies,
+    uploadCapacity: options.uploadCapacity,
     mediaStore,
   });
 
@@ -311,8 +323,8 @@ export type AuthenticatedTestContext = TestContext & {
   cookie: string;
 };
 
-export async function createAuthenticatedTestContext(): Promise<AuthenticatedTestContext> {
-  const context = await createTestContext();
+export async function createAuthenticatedTestContext(options: Parameters<typeof createTestContext>[0] = {}): Promise<AuthenticatedTestContext> {
+  const context = await createTestContext(options);
   const response = await context.app.inject({
     method: 'POST',
     url: '/api/admin/auth/setup',

@@ -73,9 +73,14 @@ export async function registerMediaRoutes(
       return notFound(reply);
     }
     const row = db.prepare(`
-      SELECT kind, storage_key, mime_type, byte_size
-      FROM media_objects
-      WHERE id = ?
+      SELECT m.kind, m.storage_key, m.mime_type, m.byte_size
+      FROM media_objects m
+      WHERE m.id = ? AND EXISTS (
+        SELECT 1 FROM songs s
+        WHERE s.status = 'published' AND s.published_at IS NOT NULL
+          AND ((m.kind = 'audio' AND s.audio_media_id = m.id)
+            OR (m.kind = 'cover' AND s.cover_media_id = m.id))
+      )
     `).get(mediaId) as MediaRow | undefined;
     if (!row || !isPublicMediaMime(row.kind, row.mime_type)) {
       return notFound(reply);

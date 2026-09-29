@@ -15,6 +15,7 @@ import {
   type UploadKind,
 } from '../media/media-validation.js';
 import type {UploadService} from '../media/upload-service.js';
+import type {UploadCapacity} from '../storage/upload-capacity.js';
 
 function unsupportedUpload(): UploadValidationError {
   return new UploadValidationError(
@@ -103,7 +104,12 @@ async function ingestMedia(
 export async function registerAdminUploadRoutes(
   app: FastifyInstance,
   uploadService: UploadService,
+  capacity?: Pick<UploadCapacity, 'acquire'>,
 ): Promise<void> {
+  async function withCapacity<T>(bytes: number, work: () => Promise<T>): Promise<T> {
+    const release = await capacity?.acquire(bytes);
+    try { return await work(); } finally { release?.(); }
+  }
   await app.register(fastifyMultipart, {
     limits: {files: 1, fields: 0, parts: 1, fileSize: AUDIO_MAX_BYTES},
   });
@@ -112,20 +118,20 @@ export async function registerAdminUploadRoutes(
     '/api/admin/uploads/audio',
     {preHandler: requireAdmin},
     async (request, reply) =>
-      reply.status(201).send(await ingestMedia(request, uploadService, 'audio')),
+      withCapacity(AUDIO_MAX_BYTES, async () => reply.status(201).send(await ingestMedia(request, uploadService, 'audio'))),
   );
 
   app.post<{Reply: PendingUploadResponse}>(
     '/api/admin/uploads/cover',
     {preHandler: requireAdmin},
     async (request, reply) =>
-      reply.status(201).send(await ingestMedia(request, uploadService, 'cover')),
+      withCapacity(COVER_MAX_BYTES, async () => reply.status(201).send(await ingestMedia(request, uploadService, 'cover'))),
   );
 
   app.post<{Reply: LrcUploadResponse}>(
     '/api/admin/uploads/lrc',
     {preHandler: requireAdmin},
-    async (request) => {
+    async (request) => withCapacity(LRC_MAX_BYTES, async () => {
       assertMultipart(request);
       const requestAbort = abortSignalFor(request);
       try {
@@ -155,7 +161,7 @@ export async function registerAdminUploadRoutes(
       } finally {
         requestAbort.dispose();
       }
-    },
+    }),
   );
 
   app.delete<{

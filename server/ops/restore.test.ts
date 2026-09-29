@@ -1,0 +1,52 @@
+import {afterEach, expect, it} from 'vitest';
+import {mkdtemp, mkdir, readFile, rm, writeFile, copyFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
+import {pipeline} from 'node:stream/promises';
+import {createTestContext, type TestContext, seedPublishedAudio, linkPublishedMedia} from '../test/test-context.js';
+import {createSnapshot, verifySnapshot} from './snapshot.js';
+import {createArchiveTools} from './archive.js';
+import {restoreBackup} from './restore.js';
+import type {BackupConfig, BackupStore} from './contracts.js';
+const archiveTools = createArchiveTools(async (source, target) => { await pipeline(source, target); });
+let context: TestContext | undefined; const roots: string[] = [];
+afterEach(async () => { await context?.dispose(); context = undefined; for (const root of roots.splice(0)) await rm(root, {recursive: true, force: true}); });
+it('restores into a new directory, revokes sessions and pending uploads without changing source or archive', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'phonograph-restore-')); roots.push(root);
+  context = await createTestContext(); await writeFile(path.join(context.dataDir, '.initialized.json'), '{"format":1}');
+  const media = await seedPublishedAudio(context, Buffer.from('synthetic-audio')); const songId = linkPublishedMedia(context, media, 'audio');
+  const session = await context.app.adminAuthService.setup('owner-password');
+  const hash = context.db.prepare('SELECT password_hash FROM admin_config').get()?.password_hash;
+  const pendingId = randomUUID(), tmpKey = randomUUID();
+  await mkdir(path.join(context.config.mediaDir, 'tmp'), {recursive: true});
+  await writeFile(path.join(context.config.mediaDir, 'tmp', tmpKey), 'pending');
+  context.db.prepare('INSERT INTO pending_uploads(id,owner_session_digest,kind,temporary_key,original_name,mime_type,byte_size,created_at) VALUES (?,?,?,?,?,?,?,?)')
+    .run(pendingId, 'digest', 'audio', tmpKey, 'test.mp3', 'audio/mpeg', 7, 'now');
+  const id = randomUUID(), prefix = `phonograph-backups/${randomUUID()}/`, archive = path.join(root, 'source.age');
+  await createSnapshot({dataDir: context.dataDir, target: path.join(root, 'snapshot'), id, createdAt: '2026-09-29T00:00:00.000Z', releaseId: 'a'.repeat(40)});
+  const digest = await archiveTools.encryptSnapshot(path.join(root, 'snapshot'), 'test-key', archive);
+  const before = await readFile(archive);
+  const receipt = {id, createdAt: '2026-09-29T00:00:00.000Z', objectKey: `${prefix}${id}.tar.age`, ...digest};
+  const store = {async readIndex() { return {format: 1, active: [receipt], pendingDelete: []}; }, async download(_r, file) { await copyFile(archive, file); }} as BackupStore;
+  const config = {dataDir: context.dataDir, workDir: path.join(root, 'work'), stateDir: path.join(root, 'state'), cos: {prefix}} as BackupConfig;
+  await mkdir(config.workDir); const target = path.join(root, 'restored');
+  await restoreBackup(config, id, 'test-key', target, store, archiveTools.decryptArchive);
+  const manifest = await verifySnapshot(target); expect(manifest.restoredFrom?.backupId).toBe(id);
+  const db = new DatabaseSync(path.join(target, 'library.sqlite'), {readOnly: true});
+  try {
+    expect(db.prepare('SELECT count(*) AS n FROM admin_sessions').get()?.n).toBe(0);
+    expect(db.prepare('SELECT count(*) AS n FROM pending_uploads').get()?.n).toBe(0);
+    expect(db.prepare('SELECT password_hash FROM admin_config').get()?.password_hash).toBe(hash);
+    expect(db.prepare('SELECT id FROM songs').get()?.id).toBe(songId);
+  } finally { db.close(); }
+  await expect(readFile(path.join(target, 'media', 'tmp', tmpKey))).rejects.toThrow();
+  expect(await readFile(archive)).toEqual(before);
+  expect(context.app.adminAuthService.verifySession(session.token)).toBe(true);
+  expect(context.db.prepare('SELECT count(*) AS n FROM pending_uploads').get()?.n).toBe(1);
+  await expect(restoreBackup(config, id, 'test-key', context.dataDir, store, archiveTools.decryptArchive)).rejects.toThrow();
+  await expect(restoreBackup(config, id, 'test-key', target, store, archiveTools.decryptArchive)).rejects.toThrow();
+  const badStore = {...store, async download(_r: unknown, file: string) { await writeFile(file, 'corrupted'); }};
+  await expect(restoreBackup(config, id, 'test-key', path.join(root, 'bad'), badStore, archiveTools.decryptArchive)).rejects.toThrow();
+});

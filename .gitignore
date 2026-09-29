@@ -41,6 +41,10 @@ Thumbs.db
 .worktrees/
 .superpowers/
 
+# Private cloud verification and encrypted runtime backup packages
+.verification/
+*.age
+
 # Capacitor / Android local files
 android/.gradle/
 android/local.properties

@@ -1,0 +1,11 @@
+[phonograph]
+# Deliberately disabled until real Caddy logs and fail2ban-regex pass Linux acceptance.
+enabled = false
+filter = phonograph
+logpath = /var/log/caddy/phonograph-access.json
+backend = auto
+port = http,https
+findtime = 600
+maxretry = 10
+bantime = 600
+ignoreip = 127.0.0.1/8 ::1

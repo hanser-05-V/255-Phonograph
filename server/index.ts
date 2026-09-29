@@ -1,4 +1,3 @@
-import {mkdir} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 
 import type {FastifyInstance} from 'fastify';
@@ -10,6 +9,7 @@ import {runMigrations} from './db/migrate.js';
 import {seedTransitionSongs} from './db/seed-transition-songs.js';
 import {LocalMediaStore} from './storage/local-media-store.js';
 import type {MediaStore} from './storage/media-store.js';
+import {prepareRuntime} from './runtime/bootstrap.js';
 
 const TEMPORARY_MEDIA_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
 
@@ -23,8 +23,14 @@ export async function cleanupStaleTemporaryMedia(
 }
 
 async function start(): Promise<void> {
+  const args = process.argv.slice(2);
+  if (args.length > 1 || (args.length === 1 && args[0] !== '--initialize-data')) {
+    throw new Error('Only --initialize-data is supported');
+  }
   const config = resolveAppConfig(process.env, process.cwd());
-  await mkdir(config.dataDir, {recursive: true});
+  const initialize = args[0] === '--initialize-data';
+  await prepareRuntime(config, {initialize});
+  if (initialize) return;
   const mediaStore = new LocalMediaStore(config.mediaDir);
 
   const database = openDatabase(config.databasePath);

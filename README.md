@@ -32,7 +32,14 @@ npm run typecheck
 
 `npm run test:run` 依次执行客户端与服务端测试，`npm run typecheck` 检查双端 TypeScript。`npm run build` 会先检查类型，再将网页输出到 `dist/`、服务端输出到 `server-dist/`。
 
-## 曲目数据
+## 个人云端测试
+
+个人云端测试的部署模板、备份与恢复流程见 [运维手册](docs/deployment/private-cloud-runbook.md)，
+已完成与待执行的检查见 [验收记录](docs/deployment/private-cloud-acceptance.md)。
+模板尚需 Linux 与真实云端验证；不表示已经部署或完成真实音频验收。
+云端运行配置、凭据、数据库和媒体始终保存在仓库外。
+
+## 曲目数据格式
 
 播放器接收 `Track[]`。每条曲目支持以下精确字段：
 

@@ -1,0 +1,26 @@
+[Unit]
+Description=255 Phonograph private application
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=phonograph
+Group=phonograph
+WorkingDirectory=/srv/255-phonograph/current
+EnvironmentFile=/etc/255-phonograph/phonograph.env
+ExecStart=/usr/bin/node server-dist/server/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/255-phonograph
+InaccessiblePaths=/var/backups/255-phonograph /var/lib/255-phonograph-ops
+
+[Install]
+WantedBy=multi-user.target

@@ -116,7 +116,7 @@ describe('Player keyboard and error behavior', () => {
     })));
     let controller: HTMLAudioElement | null = null;
     const NativeAudio = window.Audio;
-    vi.spyOn(window, 'Audio').mockImplementation(() => {
+    vi.spyOn(window, 'Audio').mockImplementation(function AudioMock() {
       controller = new NativeAudio();
       return controller;
     });

@@ -10,6 +10,7 @@ import type {DatabaseSync} from 'node:sqlite';
 
 import type {ApiErrorBody, HealthResponse} from '../shared/contracts.js';
 import {AdminAuthService} from './auth/admin-auth-service.js';
+import {registerCloudSecurity} from './auth/cloud-security.js';
 import type {AppConfig} from './config.js';
 import {UploadValidationError} from './media/media-validation.js';
 import {UploadService} from './media/upload-service.js';
@@ -23,6 +24,7 @@ import {registerMediaRoutes} from './routes/media.js';
 import {registerPublicLibraryRoutes} from './routes/public-library.js';
 import {LocalMediaStore} from './storage/local-media-store.js';
 import type {MediaStore} from './storage/media-store.js';
+import {InsufficientStorageError, UploadCapacity} from './storage/upload-capacity.js';
 import {SongError, SongService} from './songs/song-service.js';
 import {SongValidationError} from './songs/song-validation.js';
 import {
@@ -36,6 +38,7 @@ export type BuildAppDependencies = {
   frontendDir?: string;
   secureCookies?: boolean;
   mediaStore?: MediaStore;
+  uploadCapacity?: UploadCapacity;
 };
 
 function notFoundBody(): ApiErrorBody {
@@ -54,7 +57,7 @@ function isApiPath(url: string): boolean {
 
 function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler<FastifyError>((error, _request, reply) => {
-    if (error instanceof UploadValidationError) {
+    if (error instanceof UploadValidationError || error instanceof InsufficientStorageError) {
       const body: ApiErrorBody = {
         error: {code: error.code, message: error.message},
       };
@@ -139,10 +142,15 @@ async function registerStaticFrontend(
 export async function buildApp(
   dependencies: BuildAppDependencies,
 ): Promise<FastifyInstance> {
-  const app = Fastify();
+  const app = Fastify({trustProxy: dependencies.config.cloud ? ['127.0.0.1'] : false});
   const {database} = dependencies;
 
   registerErrorHandler(app);
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (isApiPath(request.url)) reply.header('Cache-Control', 'private, no-store');
+    return payload;
+  });
+  if (dependencies.config.cloud) registerCloudSecurity(app, dependencies.config.cloud);
 
   await app.register(fastifyCookie);
 
@@ -151,7 +159,7 @@ export async function buildApp(
       new LocalMediaStore(dependencies.config.mediaDir);
     app.decorate('adminAuthService', new AdminAuthService(database));
     app.decorate('adminSessionCookieName', dependencies.config.sessionCookieName);
-    app.decorate('adminCookieSecure', dependencies.secureCookies === true);
+    app.decorate('adminCookieSecure', Boolean(dependencies.config.cloud) || dependencies.secureCookies === true);
     await app.register(registerAdminAuthRoutes);
     await app.register(
       async (settingsRoutes) => registerAdminSettingsRoutes(
@@ -177,6 +185,7 @@ export async function buildApp(
         registerAdminUploadRoutes(
           uploadRoutes,
           uploadService,
+          dependencies.uploadCapacity ?? (dependencies.config.cloud ? new UploadCapacity(dependencies.config.dataDir) : undefined),
         ),
     );
     const songService = new SongService(database, mediaStore);

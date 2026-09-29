@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily 255 Phonograph backup at 05:00 China time
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 Asia/Shanghai
+Persistent=false
+Unit=phonograph-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+{
+  "dataDir": "/var/lib/255-phonograph",
+  "workDir": "/var/backups/255-phonograph",
+  "stateDir": "/var/lib/255-phonograph-ops",
+  "maintenanceFile": "/run/255-phonograph/maintenance",
+  "applicationUnit": "phonograph.service",
+  "applicationOrigin": "http://127.0.0.1:3001",
+  "siteOrigin": "https://phonograph.invalid",
+  "releaseId": "",
+  "ageRecipientsFile": "/etc/255-phonograph/age-recipients.txt",
+  "cos": {
+    "bucket": "",
+    "region": "ap-shanghai",
+    "prefix": ""
+  }
+}

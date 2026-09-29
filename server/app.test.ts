@@ -1,4 +1,6 @@
 import {afterEach, describe, expect, it} from 'vitest';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
 
 import type {FastifyInstance} from 'fastify';
 
@@ -8,9 +10,9 @@ import type {AppConfig} from './config.js';
 const testConfig: AppConfig = {
   host: '127.0.0.1',
   port: 3001,
-  dataDir: 'E:\\tmp\\phonograph-test',
-  databasePath: 'E:\\tmp\\phonograph-test\\library.sqlite',
-  mediaDir: 'E:\\tmp\\phonograph-test\\media',
+  dataDir: path.resolve(tmpdir(), 'phonograph-app-test'),
+  databasePath: path.resolve(tmpdir(), 'phonograph-app-test', 'library.sqlite'),
+  mediaDir: path.resolve(tmpdir(), 'phonograph-app-test', 'media'),
   sessionCookieName: 'phonograph_admin_session',
 };
 
@@ -28,6 +30,7 @@ describe('buildApp', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ok: true});
+    expect(response.headers['cache-control']).toBe('private, no-store');
   });
 
   it('falls back to the frontend only outside the API path segment', async () => {

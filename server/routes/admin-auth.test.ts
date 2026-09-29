@@ -24,6 +24,35 @@ describe('admin auth routes', () => {
     context = undefined;
   });
 
+  it('protects private-cloud auth writes with Host, Origin and Secure cookies', async () => {
+    context = await createTestContext({cloud: {siteOrigin: 'https://phonograph.invalid', releaseId: 'a'.repeat(40)}});
+    for (const route of ['setup', 'login', 'password']) {
+      for (const origin of [undefined, 'https://other.invalid']) {
+        const denied = await context.app.inject({method: 'POST', url: `/api/admin/auth/${route}`,
+          headers: {host: 'phonograph.invalid', ...(origin ? {origin} : {})}, payload: {password: 'owner-password'}});
+        expect(denied.statusCode).toBe(403);
+      }
+    }
+    expect(context.app.adminAuthService.needsSetup()).toBe(true);
+    expect((await context.app.inject({url: '/api/health', headers: {host: 'wrong.invalid', 'x-forwarded-host': 'phonograph.invalid'}})).statusCode).toBe(421);
+    const setup = await context.app.inject({method: 'POST', url: '/api/admin/auth/setup',
+      headers: {host: 'phonograph.invalid', origin: 'https://phonograph.invalid'}, payload: {password: 'owner-password'}});
+    expect(setup.statusCode).toBe(201);
+    expect(setup.headers['set-cookie']).toContain('Secure');
+  });
+
+  it('ignores spoofed forwarded addresses from non-loopback peers and leaves reads usable', async () => {
+    context = await createTestContext({cloud: {siteOrigin: 'https://phonograph.invalid', releaseId: 'a'.repeat(40)}});
+    for (let i = 0; i < 6; i++) {
+      const response = await context.app.inject({method: 'POST', url: '/api/admin/auth/login', remoteAddress: '192.0.2.1',
+        headers: {host: 'phonograph.invalid', origin: 'https://phonograph.invalid', 'x-forwarded-for': `198.51.100.${i}`},
+        payload: {password: 'short'}});
+      expect(response.statusCode).toBe(i < 5 ? 400 : 429);
+      if (i === 5) expect(Number(response.headers['retry-after'])).toBeGreaterThan(0);
+    }
+    expect((await context.app.inject({url: '/api/health', headers: {host: 'phonograph.invalid'}})).statusCode).toBe(200);
+  });
+
   it('supports first-time setup and sets a hardened seven-day cookie', async () => {
     context = await createTestContext();
     expect(

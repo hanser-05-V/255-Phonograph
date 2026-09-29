@@ -121,6 +121,7 @@ describe('public library routes', () => {
     expect(lyrics.statusCode).toBe(200);
     expect(lyrics.headers['content-type']).toBe('text/plain; charset=utf-8');
     expect(lyrics.body).toBe('[00:00.00]公开歌词');
+    expect(lyrics.headers['cache-control']).toBe('private, no-store');
     for (const songId of [
       seeded.emptyLyricSongId,
       seeded.draftSongId,
@@ -131,6 +132,20 @@ describe('public library routes', () => {
         url: `/api/library/songs/${songId}/lyrics`,
       });
       expect(response.statusCode).toBe(404);
+    }
+  });
+
+  it('removes unlisted tracks, lyrics and media on the next request', async () => {
+    const seeded = await seedSongsAcrossStatuses(context, 3);
+    const library = (await context.app.inject({url: '/api/library'})).json<LibraryResponse>();
+    const song = library.songs.find(item => item.id === seeded.lyricSongId)!;
+    context.db.prepare("UPDATE songs SET status = 'unlisted' WHERE id = ?").run(song.id);
+    const refreshed = await context.app.inject({url: '/api/library'});
+    expect(refreshed.json<LibraryResponse>().songs.some(item => item.id === song.id)).toBe(false);
+    expect(refreshed.headers['cache-control']).toBe('private, no-store');
+    for (const url of [song.audioUrl, song.coverUrl!, song.lyricsUrl!]) {
+      const response = await context.app.inject({url});
+      expect(response.statusCode).toBe(404); expect(response.headers['cache-control']).toBe('private, no-store');
     }
   });
 

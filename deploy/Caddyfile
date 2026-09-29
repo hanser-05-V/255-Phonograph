@@ -1,0 +1,62 @@
+# TEMPLATE: requires the approved, filed domain and an independently generated password hash.
+# Validate with the selected Caddy version before enabling; no raw media file_server.
+{
+    log default {
+        format filter {
+            wrap json
+            fields {
+                request>headers delete
+                request>uri delete
+                resp_headers delete
+                user_id delete
+            }
+        }
+    }
+}
+
+{$PHONOGRAPH_DOMAIN} {
+    route {
+        header Cache-Control "private, no-store"
+        basic_auth {
+            {$PHONOGRAPH_GATE_USER} {$PHONOGRAPH_GATE_HASH}
+        }
+        @maintenance file {
+            root /run/255-phonograph
+            try_files maintenance
+        }
+        respond @maintenance "维护中，请稍后重试" 503
+        request_body {
+            max_size 220MB
+        }
+        reverse_proxy 127.0.0.1:3001 {
+            header_up -Authorization
+            header_up -Proxy-Authorization
+            header_up -Forwarded
+            header_up Host {$PHONOGRAPH_DOMAIN}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Host {$PHONOGRAPH_DOMAIN}
+            header_up X-Forwarded-Proto https
+        }
+    }
+    handle_errors {
+        header Cache-Control "private, no-store"
+        respond "请求暂时无法处理" {err.status_code}
+    }
+    log {
+        output file /var/log/caddy/phonograph-access.json {
+            mode 0600
+            roll_size 10MiB
+            roll_keep 5
+            roll_keep_for 168h
+        }
+        format filter {
+            wrap json
+            fields {
+                request>headers delete
+                request>uri delete
+                resp_headers delete
+                user_id delete
+            }
+        }
+    }
+}

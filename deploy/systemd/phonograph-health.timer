@@ -1,0 +1,10 @@
+[Unit]
+Description=255 Phonograph local health report every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Unit=phonograph-health.service
+
+[Install]
+WantedBy=timers.target

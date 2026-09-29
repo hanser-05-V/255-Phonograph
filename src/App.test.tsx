@@ -219,7 +219,7 @@ describe('App', () => {
     mockLibraryScenario('ready');
     const NativeAudio = window.Audio;
     const audioConstructor = vi.spyOn(window, 'Audio').mockImplementation(
-      () => new NativeAudio(),
+      function AudioMock() { return new NativeAudio(); },
     );
     const user = userEvent.setup();
     render(<MemoryRouter><AppWithPublicNavigation /></MemoryRouter>);
