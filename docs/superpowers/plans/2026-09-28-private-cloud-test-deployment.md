@@ -6,9 +6,9 @@
 
 **Architecture:** Caddy 私人入口代理本机单进程 Fastify；Node.js 24 自带 SQLite 与本地媒体存储使用固定数据目录。独立运维程序在停写窗口制作一致快照，恢复应用后用 age 加密并通过 COS SDK 上传到私有 Lighthouse COS；对象存储不参与播放器媒体分发。
 
-**Tech Stack:** 现有 TypeScript/Fastify/React/Vite/Vitest、Node.js 24、Ubuntu 26.04（已购镜像，运行待验）、systemd、Caddy、Fail2ban、age、官方 `cos-nodejs-sdk-v5`、Node `tar` 包。
+**Tech Stack:** 现有 TypeScript/Fastify/React/Vite/Vitest、Node.js 24、Ubuntu 26.04（工程测试及本机应用验证通过，正式部署待验）、systemd、Caddy、Fail2ban、age、官方 `cos-nodejs-sdk-v5`、Node `tar` 包。
 
-**当前执行入口（2026-09-30）：** 以末尾“Linux 状态权限测试修正”及“参数化用例追加修正”章节为准。984162e 源码包已获批上传、解包及运行 Linux 测试：客户端 163/163，服务端 284/286。权限测试及原有参数化用例已在本地修正，最终聚焦 23/23、服务端 294/294，包含两份测试的类型检查通过；常规类型检查和构建已在权限修正后通过。新提交、打包、上传与 Linux 复验尚未执行。Caddy 保持 masked。
+**当前执行入口（2026-09-30）：** 以末尾“新版 Linux 验证完成与家中电脑交接”为准。源码提交 ad23f36 已上传，Linux 客户端 163/163、服务端 294/294、类型检查和构建全部通过；独立数据初始化、本机 HTTP、音频 GET/HEAD/Range、Host 检查和应用重启后数据保留均通过。测试进程已正常停止，3001 无监听，数据与日志保留。正式应用服务、私人入口/HTTPS、真实备份恢复及家庭使用验收仍待执行，并非只差备案。历史章节保留当时状态；本轮用户已授权更新进度、提交并推送开发分支供家中电脑接续。
 
 **Spec:** [已确认设计规格](../specs/2026-09-28-private-cloud-test-deployment-design.md)。
 
@@ -25,7 +25,7 @@
 ## 1. 执行边界
 
 - 唯一开发根目录：`E:\codex\hanser\.worktrees\pc-music-player`，分支 `codex/pc-music-player`。本文代码命令均从此目录执行，文中的仓库相对路径均相对此绝对根目录。
-- 当前修正基线 HEAD：`984162e2a0257b63f75a3908395d8e63e6df5187`。此前 14 文件已获批提交，未推送；本次仅批准两份权限相关测试、验收记录、本计划及列明的本地验证产物。原实施/适配基线及当时未提交状态保留在历史执行记录中。
+- 当前服务器已验证的源码基线：`ad23f3644498dd542357092c1aaca018e5c971d4`；本轮在其后提交两份交接文档，并获准将当前进度及已有改动推送 `origin/codex/pc-music-player`。该文档提交不改变服务器源码发布号。原实施/适配基线及当时未提交状态保留在历史执行记录中。
 - 主仓库的迁移包目录保持原样；不在 main 开发，不重建工作树，不重置密码，不读写现有真实曲库补测试。
 - 计划批准不替代付费采购、远端部署、真实媒体上传/迁移、覆盖恢复、Git 提交或推送授权。这些操作分别在 Task 11–12 中停在明确关口。
 - 每个开发任务开始前核对本任务文件表和生成产物范围。若批准未覆盖该表，先申请；若实现证明需要扩展表，列明新增文件和原因后再申请。允许在已批准的同一任务范围内修复失败，不要求为每一行修改再次审批。
@@ -883,3 +883,65 @@ Linux 配置校验、应用 systemd、真实 age 与 COS、强杀补偿、服务
 - [x] 生产编译输入没有变化，常规类型检查和前后端构建沿用上一阶段通过结果，本次不重复构建或客户端测试。
 
 累计待提交范围仍为 cli.test.ts、snapshot.test.ts、验收记录、本计划四个文件。新版本提交、源码包生成、上传及真实 Linux 复验继续分别审批；此前 984162e 包和服务器失败日志保留，不能把本地修正通过写成服务器已通过。
+
+## 2026-09-30 新版 Linux 验证完成与家中电脑交接（当前）
+
+### 已完成的变化
+
+- [x] `984162e`：成都云环境适配和部署准备，包含 COS ap-chengdu 配置、地域费用估算、固定 /opt/255-phonograph/node24/bin/node 的 systemd 模板，以及文档和测试更新。模板尚未正式安装到服务器。
+- [x] `ad23f36`：修正 Linux 非 root 测试夹具，补齐 root/权限拒绝覆盖；修正 CLI 参数化用例传递整个参数数组并断言 INVALID_ARGUMENTS。生产权限保护保持原样。本地聚焦 23/23、服务端 294/294、包含修改测试的类型检查通过。
+- [x] 用户批准生成新包，183 个源码文件逐一核对 Git blob；新版三个文件上传后哈希一致，远端解包后 183 文件再次按清单验证。详细哈希见[验收记录](../../deployment/private-cloud-acceptance.md)。
+- [x] Ubuntu 用户在 Node 24.21.0/npm 11.19.0 环境安装 335 包；全量 Linux 客户端 163/163、服务端 294/294、类型检查和构建通过，退出码均为 0。
+- [x] 获批初始化独立 app-data，数据库完整、3 首合成歌曲/3 个媒体；仅监听 127.0.0.1:3001，健康、首页、静态资源、曲库、音频 GET/HEAD/Range 及错误 Host 检查通过。
+- [x] 正常停止并重启应用，曲库 JSON 和三段媒体 SHA-256 不变；最后再次正常停止，退出码 0、3001 无监听。没有重启整台服务器。
+
+### 服务器停留位置与保留文件
+
+| 项目 | 位置/状态 |
+| --- | --- |
+| 主机 | 腾讯云成都 lhins-856nphe0，1.14.111.74，ubuntu 用户；SSH 指纹见验收记录。连接方式仍由用户控制，不在 Git 保存凭据。 |
+| 新包 | /home/ubuntu/255-phonograph-ad23f36/：255-phonograph-ad23f36-source.tar.gz、release-manifest.json、SHA256SUMS。 |
+| 隔离测试根 | /var/tmp/255-phonograph-linux-test-ad23f36/，ubuntu:ubuntu 0700。 |
+| 源码/构建 | 上述根目录下 source/，其中 dist/ 和 server-dist/ 已构建。源码发布号固定为 ad23f3644498dd542357092c1aaca018e5c971d4。 |
+| 测试数据 | 上述根目录下 app-data/：library.sqlite、.initialized.json、media/；仅合成数据。已初始化，不再次执行 --initialize-data，不覆盖或删除。 |
+| 缓存/临时/日志 | 同一根目录下 npm-cache/、tmp/、logs/；日志包含 npm-ci.log、tests.log、build.log、initialize.log、app.log、smoke-test.log。 |
+| 测试进程 | 首次 101336、重启后 104012 均已退出；这些 PID 不可供后续直接 kill。最后 3001 无监听。 |
+| Caddy/正式服务 | Caddy 最近已核验 masked/inactive，本轮未变更；正式 phonograph 用户、服务和生产数据布局尚未创建。 |
+| 旧版本保留 | /home/ubuntu/ 下原 984162e 三个文件、/var/tmp/255-phonograph-linux-test-20260930/（包含失败日志）保留。Node/Caddy 安装准备目录也保留。 |
+
+环境变量仅存在于之前的终端，换设备/会话后不自动继承。继续测试前只读核对解释器、当前目录、端口、文件状态，再按获准范围设置 PATH、TMPDIR、npm_config_cache、NODE_DISABLE_COMPILE_CACHE 和应用配置。应用配置完整值见验收记录最新章节。浏览器在家中电脑打开 127.0.0.1 访问的是家中电脑，不能由此判断云端服务；目前没有对外可交付的网址。
+
+### 接下来做什么
+
+1. 只读核对最新 Git 分支、两份记录、运维手册和服务器当前状态；不要重复已完成测试、安装依赖或初始化，除非版本/环境变化或出现新失败。
+2. 按既定计划列出正式部署目录、应用用户和权限、环境配置、systemd 单元及验证方法，取得具体写入和服务操作批准。当前代码仍位于 /var/tmp 的隔离测试目录，不应直接作为正式长期部署位置。
+3. 准备私人访问认证、Caddy 配置校验、域名/DNS/备案和 HTTPS，按批准范围逐步执行；此前 Caddy masked 状态不能自动解除，未获批不开放入口或改防火墙。
+4. 完成 age 真实加密、COS 最小权限/备份恢复、定时任务和强杀补偿，以及整机重启、重新部署/回滚验证。真实密钥和密码只保存在批准的受限位置，不提交 Git。
+5. 获得用户批准的真实音频后，验证电脑/手机上的登录、上传、播放、拖动、歌词/频谱和页面尺寸，再做三天试运行与两次定时备份。
+
+本次用户要求同步进度并推送 GitHub，授权范围为已列出的验收记录、本计划，以及提交/推送当前开发分支的已有改动。不是对剩余正式部署、服务启动、真实数据或费用操作的总授权。
+
+### 家中电脑接续说明
+
+仓库：`https://github.com/hanser-05-V/255-Phonograph.git`；开发分支：`codex/pc-music-player`。main 不是本轮接续入口，保持不变。此次文档提交位于 ad23f36 之后；拉取后以 `git log -3 --oneline` 核对最新交接文档及两次源码提交，服务器现有源码仍是 ad23f36。
+
+家中电脑尚无仓库时，在选定的父目录执行：
+
+```bash
+git clone --branch codex/pc-music-player https://github.com/hanser-05-V/255-Phonograph.git
+cd 255-Phonograph
+git status --short
+git log -3 --oneline
+```
+
+若已有仓库，先检查 `git status --short` 和 `git worktree list`，保留当地未提交工作。确认工作区干净且该分支不被其他工作树占用后，再执行 `git fetch origin`、`git switch codex/pc-music-player`、`git pull --ff-only origin codex/pc-music-player`。快进失败就先检查差异，不使用 reset --hard 或强推处理。不要照搬公司电脑 E: 路径；以家中实际项目路径为准。
+
+优先阅读本节、[验收记录](../../deployment/private-cloud-acceptance.md)、[运维手册](../../deployment/private-cloud-runbook.md)以及[设计规格](../specs/2026-09-28-private-cloud-test-deployment-design.md)。最新两份记录覆盖手册里尚未跟进的进度描述；后续若要改手册，另列文件范围。
+
+Git 同步源码、锁文件、部署模板和文档；不传 node_modules、构建产物、.verification、本地原始日志、数据库、媒体或凭据。家中开发环境需要 Node.js 24；安装依赖/运行验证产生的本地产物先遵守写入审批。服务器包、构建、合成数据和日志均已保留，可以从家中登录服务器接续，无需为换电脑重新上传或初始化。
+
+可将下面的说明发给家中电脑上的 Codex：
+
+> 继续开发 255-Phonograph。先只读确认当前为 codex/pc-music-player 最新分支，读取实施计划末尾“新版 Linux 验证完成与家中电脑交接”、验收记录最新章节、运维手册及设计规格。服务器已验证源码 ad23f36：客户端 163/163、服务端 294/294、构建、本机 HTTP、音频 GET/HEAD/Range 和应用重启后数据保留均通过。测试进程已停止，3001 无监听，合成数据和日志保留；Caddy 未启动。现在准备正式部署与私人访问配置，不能认为只剩备案。先核对现状并列下一步具体文件、影响和验证方法；所有写入及提交/推送/部署按我的审批规则执行。不要重复初始化、覆盖旧日志、读取真实曲库或重置密码，不自动派发子代理。
+
+本轮文档验证仅检查授权文件差异、相对链接及提交范围；不因交接重跑工程测试。推送成功与否必须用 Git 结果和远端分支 SHA 核实，不能只凭本节说明声称已同步。

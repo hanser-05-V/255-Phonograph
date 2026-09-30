@@ -2,11 +2,11 @@
 
 日期：2026-09-29。此文件区分本地代码证据与未执行验收，不代表已经部署。
 
-当前汇总更新于 2026-09-30，详见末尾“Linux 首轮测试与状态权限测试修正”和“参数化用例追加修正”章节。服务器已上传并解包 984162e 版本，首轮 Linux 客户端通过、服务端有两项失败；本地权限及参数化测试修正均已验证，尚未提交或上传复验。服务器事实来自用户手工终端回传，历史记录保留。
+当前汇总更新于 2026-09-30，最新证据见末尾“新版 Linux 复验、本机访问与交接”。服务器已完成 ad23f36 版本的全量测试、构建、本机 HTTP 和应用重启验证；测试进程已正常停止，3001 无监听，数据及日志保留。尚未正式部署或提供私人访问网址，剩余工作不只有备案。服务器证据来自用户手工终端回传；下方各历史章节保留当时状态，以本汇总和末尾最新章节为准。
 
 | 范围 | 当前状态 | 证据/仍需完成 |
 | --- | --- | --- |
-| 基线 | 已提交并生成首轮源码包 | 开发分支 HEAD 为 984162e2a0257b63f75a3908395d8e63e6df5187；14 文件适配已获批提交，未推送。本次两份测试和两份文档的修正尚未提交，不能用该 SHA 代表修正后的版本。 |
+| 基线 | 新版源码已提交、上传并复验 | 服务器验证的源码提交为 ad23f3644498dd542357092c1aaca018e5c971d4，分支 codex/pc-music-player；本次交接文档提交将位于其后。用户已要求将部署适配、测试修正及最新进度推送 GitHub，推送结果以远端核验为准。 |
 | 云端配置 | 聚焦测试通过 | 非法 Origin、host、相对路径和 SHA 拒绝；本地模式保持。 |
 | 初始化/启动保护 | 聚焦测试通过 | 缺库/标记/schema 拒绝；不覆盖非空目录，重启保留合成数据。 |
 | 管理保护 | 聚焦测试通过 | Host、Origin、Secure Cookie、转发头与限速恢复。真实 HTTPS/Caddy 尚未测。 |
@@ -20,7 +20,8 @@
 | 本地服务端回归、类型和构建 | 本次通过 | Node 24.16.0/Vitest 4.1.11：最终聚焦 23/23、服务端 34 文件 294/294；两份修改测试纳入 TypeScript 检查后零诊断。权限修正后的常规类型检查和前后端构建已通过；后续参数化修正仅改测试，未重跑构建。客户端未改，本次未重跑；此前本地及首轮 Linux 均为 163/163。 |
 | 依赖安全审计 | 历史 npm audit 通过；本轮未重跑 | 2026-09-29 npm audit 全部级别均 0，退出码 0。本轮未变更依赖或锁文件，不代表本轮新增审计证据。 |
 | 服务器预检及 Node 安装 | 交接记录已完成 | Ubuntu 26.04/x86_64/systemd 259；Node 24.21.0、npm 11.19.0，SQLite 内存查询与 backup API 检查通过。详见末尾证据。 |
-| Linux 工程回归 | 首轮未通过；修正版本待复验 | Node 24.21.0/npm 11.19.0、ubuntu 用户：客户端 163/163，服务端 284/286；两项均因测试状态文件归非 root 所有而被安全检查拒绝。服务器尚未运行构建，也未收到本次测试修正。 |
+| Linux 工程回归 | 新版全部通过 | Node 24.21.0/npm 11.19.0、ubuntu 用户：客户端 30 文件 163/163，服务端 34 文件 294/294，ExitCode=0；两套类型检查、Vite 前端构建和服务端编译全部通过，ExitCode=0。首轮失败记录保留。 |
+| 服务器本机 HTTP | 已通过 | 127.0.0.1:3001 的健康接口、首页、JS/CSS HEAD、曲库、音频 GET/HEAD/Range，以及错误 Host 返回 421 已验证；只用三段合成音频，尚非浏览器播放验收。 |
 | Caddy/systemd/Fail2ban | 安装准备部分完成；项目配置未验证 | Caddy 2.11.4 已安装，两个 Caddy 服务保持 masked/inactive；应用 systemd 未安装，Fail2ban 未安装，模板 jail 保持禁用。 |
 | age 真加密/错误私钥/截断 | 未执行 | 本机无 age，需隔离 Linux 密钥演练。 |
 | 备份硬终止、锁、开机恢复 | 未执行 | 需真实 systemd/flock 故障注入。 |
@@ -29,7 +30,7 @@
 | 真实 MP3/M4A/封面/LRC 上传 | 未执行 | 用户暂无已批准文件；不得使用现有曲库补验。 |
 | 家庭网页播放和拖动 | 未执行 | 首播、暂停、往返拖动、歌词/频谱、下一首、刷新恢复且暂停。 |
 | 页面尺寸 | 未执行 | 390×844、1280×720、1920×1080 后台/播放器。 |
-| 持久化及回滚 | 本机启动/重启通过；云端未执行 | 已用编译产物与独立合成数据验证初始化、页面、Host、206、Secure Cookie、重启后 ID/媒体/hash 保留、缺标记拒绝启动；服务器重启、重新部署、版本切换仍待验收。 |
+| 持久化及回滚 | 本地既有验证及云端应用重启通过 | 云端独立数据目录初始化后正常停止并重启，曲库和三段音频 SHA-256 不变；测试结束再次正常停止。整台服务器重启、正式重新部署、版本切换和回滚仍待验收；云端本轮未验证 HTTPS/Secure Cookie。 |
 | 三天试运行/两次定时备份 | 未执行 | 含家庭晚间网络、实际内存/磁盘/费用和恢复耗时。 |
 
 本地真实数据库、媒体、管理密码没有被读取/修改来补验。永久删除保持列表点击直接执行，不恢复二次确认。当前没有私人访问网址可以交付。
@@ -171,3 +172,63 @@
 - 最小修正为把每个参数数组包装成 `{args}`，回调解构后将完整数组交给真实 parseArguments，保留 8 项原始输入并检查明确的 `INVALID_ARGUMENTS` 错误。没有修改生产解析器或权限逻辑，也没有增减用例数。
 - 最终两文件聚焦 23/23、完整服务端 34 文件 294/294，均退出码 0；将两份修改测试文件显式纳入 TypeScript 检查后零诊断、退出码 0。结果追加到 focused-after.log、server-tests.log 和 build.log，历史失败保留。
 - 本次只改变测试和文档，常规构建沿用上一阶段已通过结果，没有重跑客户端或构建。snapshot.test.ts 的前一阶段修正保持不变；累计仍为两份测试、两份文档未提交。尚未生成新源码包、上传或在 Linux 复验。
+
+## 2026-09-30 新版 Linux 复验、本机访问与交接（最新）
+
+### 修正提交与发布来源
+
+用户随后批准四文件提交、三个新版发布文件生成，以及新版隔离目录、解包、依赖安装和测试构建；上传由用户在终端工具中完成。修正提交为 `ad23f3644498dd542357092c1aaca018e5c971d4`，提交说明为 `test: fix Linux backup state fixtures and CLI argument cases`。Linux 权限修正及参数化用例修正均已包含，生产权限检查没有放宽。
+
+本地发布目录为 `E:\codex\hanser\.worktrees\pc-music-player\.verification\private-cloud\releases\ad23f3644498dd542357092c1aaca018e5c971d4\`；服务器上传目录为 `/home/ubuntu/255-phonograph-ad23f36/`。三个文件的本地/远端 SHA-256 全部一致：
+
+| 文件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| 255-phonograph-ad23f36-source.tar.gz | 206440 | 35e7ae4f921ea86427f90e8c977543266b08a39869ad42fe40a2a437729b6ba1 |
+| release-manifest.json | 43322 | 54651087f01547776168af2bddfa5bc47825fa29669b0c0519a238efd1a5d2d8 |
+| SHA256SUMS | 191 | 4ac5341b549f19546c2fed9f43ceb25fab54cd20007135c1f1c3632248f7c788 |
+
+源码包包含 183 个普通文件、源码总计 908514 字节；本地逐文件与提交 blob 比对，远端解包后再次按清单核对字节数、哈希和完整提交号。目录前缀 source/，文件 0644/目录 0755；不含真实媒体、数据库、凭据、node_modules 或构建目录。旧 984162e 包及旧隔离目录全部保留。
+
+### Linux 工程验证
+
+- 隔离根为 `/var/tmp/255-phonograph-linux-test-ad23f36/`，ubuntu:ubuntu、0700；source、npm-cache、tmp、logs 均在其下。预检 /var/tmp 位于 /dev/vda3 ext4，39 GB 总量、31 GB 可用，这是当时数值。
+- 专用解释器为 `/opt/255-phonograph/node24/bin/node`，实际指向 node-v24.21.0-linux-x64/bin/node。Node 24.21.0、npm 11.19.0；TMPDIR 和 npm_config_cache 分别指向隔离根下 tmp 与 npm-cache，NODE_DISABLE_COMPILE_CACHE=1。
+- `npm ci --registry=https://registry.npmjs.org --no-audit --no-fund`：335 包、17 秒、ExitCode=0。记录 whatwg-encoding 弃用及 esbuild 0.28.2 安装脚本未被 allowScripts 覆盖的提示；没有批准全部脚本、升级 npm 或更改锁文件，后续测试和构建实际通过。
+- `npm run test:run`：客户端 30 文件 163/163（31.43 秒），服务端 34 文件 294/294（17.62 秒），ExitCode=0。cli.test.ts 19 项、snapshot.test.ts 4 项通过，首轮两个失败均已消除。
+- `npm run build`：前后端类型检查、Vite 7.3.6 构建和服务端编译通过，ExitCode=0；88 模块，index.html 400 字节、JS 290810 字节、CSS 30468 字节。未重跑依赖审计。
+
+### 初始化、HTTP 与应用重启
+
+用户明确批准“初始化测试数据及本机启动验证”，范围为独立 app-data、初始化/运行/测试日志、ubuntu 用户本机进程的启动、正常停止及重启；没有授权正式部署或开放公网入口。
+
+配置：NODE_ENV=production、PHONOGRAPH_DEPLOYMENT=private-cloud、PHONOGRAPH_SITE_ORIGIN=https://255fm.cn、PHONOGRAPH_RELEASE_ID=ad23f3644498dd542357092c1aaca018e5c971d4、PHONOGRAPH_DATA_DIR=/var/tmp/255-phonograph-linux-test-ad23f36/app-data、PHONOGRAPH_HOST=127.0.0.1、PHONOGRAPH_PORT=3001。前端目录为 source/dist；数据目录位于源码外。环境变量仅设置在当时的 shell，换终端后需重新核对，不假定持久化。
+
+| 验证项 | 用户回传结果 |
+| --- | --- |
+| 显式初始化 | 编译入口加 --initialize-data，umask 077，ExitCode=0；标记 format=1，SQLite integrity_check=ok，songs 和 media_objects 各 3 条。 |
+| 进程与监听 | 首次 PID 101336，ubuntu 用户，仅 127.0.0.1:3001；app.log 无启动错误。 |
+| 健康/首页 | 正确 Host 为 255fm.cn；/api/health 为 200、{"ok":true}，首页为 200、标题“255留音机”。 |
+| 静态资源 | /assets/index-DWw1wVwh.js 和 /assets/index-CIXkhDM0.css 的 HEAD 均为 200，类型及大小正确。 |
+| 曲库 | /api/library 为 200，返回 night-walk、volcano-planet、first-light 三首合成测试歌曲。 |
+| 音频 | night-walk 的 /api/media/2d4d6f30-a89b-405e-847b-ca84d8bd274d：GET 200，响应类型 audio/wav，下载 16044 字节；HEAD 200/content-length=16044；Range bytes=0-15 返回 206、content-range=bytes 0-15/16044、下载 16 字节。 |
+| Host 检查 | Host: invalid.example 返回 421、INVALID_HOST。此检查不等同于私人访问认证。 |
+| 正常停止与重启 | PID 101336 收到 SIGTERM 后 wait=0，3001 释放。未再初始化，直接启动新 PID 104012；曲库完整 JSON 与重启前一致，三段媒体文件哈希均不变。 |
+| 最终状态 | PID 104012 再次 SIGTERM/wait=0，ss 只显示表头，3001 已无监听。两个 PID 是历史记录，后续不能据此直接杀进程。 |
+
+重启前后媒体内容证据：
+
+| app-data/media/objects/ 下文件 | SHA-256 |
+| --- | --- |
+| c9655626-43fd-4ffb-ae44-84ca3e972e90 | 4339ce5d174e615d7764ad11a90414250eadac6328fbc5539b0e5833eac000dd |
+| fb7f9aab-a33b-4449-bbc3-e13f61cf55c8 | e34479a9c76707d641f0f636969f5219f2870825f960792862bf89a6f6f365e8 |
+| e0ed5e49-4804-4220-adea-c5a6be21bd22 | aab43de6d7e0077a9f191ee7240fca971ed7aacdaba6788c562ef1299b54dae3 |
+
+服务器日志位于隔离根下 logs/：npm-ci.log、tests.log、build.log、initialize.log、app.log、smoke-test.log。原始输出通过用户终端回传核对；部分退出码仅在终端回显，不能声称日志记录了所有退出码。HTTP 与媒体哈希结果追加在 smoke-test.log；进程停止结果由本会话回传证明。本地未另存这些服务器日志，不将原始产物提交 GitHub。
+
+### 当前结论与剩余关口
+
+Linux 工程及本机服务验证通过；测试进程已停止，服务器测试数据和日志保留。Caddy 最近核验为 masked/inactive，本轮没有改动或启动它；没有创建正式应用用户/systemd 服务、正式数据目录、DNS/HTTPS 或私人入口。
+
+距离正常使用还需：正式部署布局与权限、应用 systemd 启停/开机启动，Caddy 配置校验与私人认证入口、域名/DNS/备案及 HTTPS，Fail2ban 等既定入口措施，age/COS 真实备份和恢复、强杀补偿，整机重启/重新部署，以及用户批准的真实音频、家庭浏览器播放和三天试运行。本轮只验证合成音频 HTTP；没有实际浏览器播放、真实 HTTPS/Secure Cookie 或管理员密码测试，不能说只剩备案。
+
+用户要求把当前进度和改动推送 GitHub，以便家中电脑继续开发。本轮仅更新本验收记录和实施计划；前序源码提交随开发分支一并推送，main 不改。接续方式见[计划末尾的家中电脑接续说明](../superpowers/plans/2026-09-28-private-cloud-test-deployment.md#家中电脑接续说明)。
