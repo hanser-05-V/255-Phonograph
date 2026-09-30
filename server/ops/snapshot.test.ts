@@ -6,8 +6,7 @@ import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createTestContext, seedPublishedAudio, type TestContext} from '../test/test-context.js';
 import {createSnapshot, verifySnapshot} from './snapshot.js';
-import {readBackupState, writeAtomicJson} from './cli.js';
-import type {BackupConfig} from './contracts.js';
+import {writeAtomicJson} from './cli.js';
 
 let context: TestContext | undefined; const roots: string[] = [];
 afterEach(async () => { await context?.dispose(); context = undefined; for (const root of roots.splice(0)) await rm(root, {recursive: true, force: true}); });
@@ -30,10 +29,13 @@ it('captures committed WAL records and verifies database references plus file ha
   await expect(verifySnapshot(result.directory)).rejects.toThrow(/hash|size/i);
   let failureCode: string | undefined;
   try { await verifySnapshot(result.directory); } catch (error) { failureCode = (error as {code: string}).code; }
+  expect(failureCode).toBe('FILE_HASH_OR_SIZE_MISMATCH');
   const stateDir = path.dirname(input.target);
-  await writeAtomicJson(path.join(stateDir, 'state.json'), {phase: 'failed', lastSuccessAt: null,
-    lastErrorCode: failureCode, applicationWasActive: true, applicationRecovered: true});
-  expect((await readBackupState({stateDir} as BackupConfig)).phase).toBe('failed');
+  const state = {phase: 'failed', lastSuccessAt: null,
+    lastErrorCode: failureCode, applicationWasActive: true, applicationRecovered: true};
+  await writeAtomicJson(path.join(stateDir, 'state.json'), state);
+  // cli.test.ts covers reading this error code under Linux root ownership and private modes.
+  expect(JSON.parse(await readFile(path.join(stateDir, 'state.json'), 'utf8'))).toEqual(state);
   expect((await readFile(path.join(context.config.mediaDir, 'objects', media.storageKey))).toString()).toBe('synthetic-media');
 });
 it('rejects missing media and never changes source rows', async () => {
