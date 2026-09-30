@@ -1,28 +1,30 @@
 # 255留音机个人云端测试运维手册
 
-本手册为待部署操作材料。当前没有服务器、实际域名或云端凭据；不得直接把模板复制到公网主机后宣称部署完成。采购、资源创建、安装软件、写云端文件、启用定时任务、真实媒体上传/迁移、恢复切换、Git 提交和推送均需对应批准。
+本手册为待部署操作材料。2026-09-30 已进入测试部署准备：成都 Ubuntu 26.04 实例已完成预检和 Node 24.21.0、Caddy 2.11.4 安装，Caddy 保持 masked，应用尚未上传。以第 12 节为当前事实和执行要求；服务器证据来自用户终端回传的交接记录，第 10–11 节保留历史。本次仅批准四份文档更新；后续云端写入、服务启停、真实媒体操作、Git 提交和推送均需对应批准。
 
 设计依据：[规格](../superpowers/specs/2026-09-28-private-cloud-test-deployment-design.md)、[实施计划](../superpowers/plans/2026-09-28-private-cloud-test-deployment.md)。结果以[验收记录](private-cloud-acceptance.md)为准。
 
 ## 1. 采购及部署前输入
 
-- 腾讯云上海轻量应用服务器锐驰型，2 核 2 GB、40 GB 系统盘、Ubuntu 24.04；仅本人访问。官方标价参考 45 元/月，备案资源期限要求须在下单时再核实。
-- 普通非溢价 `.cn` 域名，参考首年 39 元、续费 38 元；先核实可注册域名、实名和备案。域名未备案完成前不开放域名网站服务。
+- 腾讯云成都二区实例 `lhins-856nphe0`，名称 `255-phonograph`，公网 IP `1.14.111.74`；锐驰型 2 核 2 GB、40 GB SSD、Ubuntu Server 26.04 LTS 64bit、200 Mbps 峰值、无限流量。到期原值 `2026-12-31 11:53:38`，自动续费关闭。仅本人访问。
+- 域名 `255fm.cn` 已购买、控制台显示正常；拟四川个人备案，尚未提交。域名实名完成状态、备案资格和实际成交/续费金额仍需官方渠道核对。域名未备案完成前不开放域名网站服务。
 - 同地域私有 Lighthouse COS，仅放加密备份，不承担播放器媒体分发。不假设具有普通 COS 的存储桶列表、生命周期等接口。
-- 估算服务器三个月 135 元，域名首年 39 元，初期约 174 元，另计备份。上海存储参考 0.00393333 元/GB/日；所有备份合计 10 GB 时约 1.18 元/月，合计约 49.43 元/月。七份各 10 GB 是 70 GB，不能按 10 GB 算。公网恢复下载参考 0.5 元/GB；请求、上行与同地域链路是否单列费用以最终产品计费页和订单为准。免费额度、活动价、200 Mbps 峰值均不是长期费用或家庭访问速度保证。
+- 当前健康估算保留服务器 45 元/月、域名 39 元/年的参考基数，尚非此次成交价。成都存储参考 0.0033 元/GB/日；全部备份日均合计 10 GB、30 天约 0.99 元，合计参考 49.24 元/月，未含公网恢复下载。七份各 10 GB 是 70 GB，不能按 10 GB 算。公网恢复下载参考 0.5 元/GB；实际费用以最终产品计费和账单为准。200 Mbps 峰值不能替代家庭访问实测。
 - 采购前记录准确服务器 ID、IP、主机指纹、域名、桶名、独占前缀、续费周期和账单告警设置；不得用示例值填充生产配置。实名材料在服务商官方页面处理。
 
 官方参考（采购前重新核对）：[服务器价格](https://cloud.tencent.cn/document/product/1207/73452)、[域名价格](https://buy.cloud.tencent.com/domain/price?intl=0&source=newDNSPod&type=overview)、[备份存储计费](https://cloud.tencent.com/document/product/1207/88189)、[备案资源要求](https://cloud.tencent.com/document/product/243/18908/)、[Lighthouse COS 能力](https://cloud.tencent.cn/document/product/1207/108904)。
 
 ## 2. 固定版本与本地证据
 
-执行环境 Node.js 24.16.0；新增官方 `cos-nodejs-sdk-v5` 3.0.0、`tar` 7.5.22 均精确锁定。Linux 的 Node.js 24 修订版、Caddy、age、Fail2ban、systemd 版本尚未选定和验证，部署前记录实际版本及官方安装来源。当前 `age` 真加密、Caddy 私人入口、systemd 故障补偿和 Fail2ban 匹配均不能由 Windows 单元测试替代。
+本地已有验证环境为 Node.js 24.16.0；官方 `cos-nodejs-sdk-v5` 3.0.0、`tar` 7.5.22 均精确锁定。服务器交接版本为 Node 24.21.0、npm 11.19.0、Caddy 2.11.4、systemd 259；age 和 Fail2ban 尚未安装。项目尚未在服务器补丁版本运行全量测试；`age` 真加密、Caddy 私人入口、systemd 故障补偿和 Fail2ban 匹配均不能由 Windows 单元测试替代。
 
-2026-09-29 已获批完成开发依赖安全更新：Vite 固定 7.3.6，Vitest 及 @vitest/mocker 固定 4.1.11。同主版本更新后残留的 GHSA-82fw-gwwq-j7x9 已不再出现在最新 npm audit 报告；本次所有级别均为 0、退出码 0。这是当前依赖公告检查结果，不代表全项目安全审计。客户端 163/163、服务端 270/270、类型检查和生产构建通过；首次服务端临时目录配置失败及获批纠正后的复验记录见[验收记录最新章节](private-cloud-acceptance.md)。报告使用忽略目录 `.verification/private-cloud/vitest4-*.log` 与 `vitest4-audit.json`，不提交。
+2026-09-29 已获批完成开发依赖安全更新：Vite 固定 7.3.6，Vitest 及 @vitest/mocker 固定 4.1.11。此前残留的 GHSA-82fw-gwwq-j7x9 已不再出现在当日 npm audit 报告；当日所有级别均为 0、退出码 0，本次没有重跑 audit。当日客户端 163/163、服务端 270/270、类型检查和生产构建通过；2026-09-30 成都适配后服务端为 286/286，客户端仍为 163/163，类型与构建通过。失败和复验历史见[验收记录](private-cloud-acceptance.md)。升级报告使用忽略目录 `.verification/private-cloud/vitest4-*.log` 与 `vitest4-audit.json`，成都适配报告在 `.verification/private-cloud/chengdu-ubuntu26/`，均不提交。
 
-本地服务端验证须将 TEMP/TMP 指向已批准的仓库外隔离目录；本轮为 `C:\Users\Administrator\AppData\Local\Temp\255-phonograph-vitest4-20260929\`。初始化及运维路径校验会拒绝代码目录内的数据路径，不能为了测试通过关闭这项保护。该本地目录不作为 Linux 部署数据路径。不启用公网 Vite 开发服务器或 Vitest UI；运行服务使用生产构建和 Fastify。
+本地服务端验证须将 TEMP/TMP 指向已批准的仓库外隔离目录；2026-09-30 适配使用 `C:\Users\Administrator\AppData\Local\Temp\255-phonograph-chengdu-ubuntu26-20260930\`。此前 Vitest 4 升级目录保留为历史产物，不复用或清理。初始化及运维路径校验会拒绝代码目录内的数据路径，不能为了测试通过关闭这项保护。该本地目录不作为 Linux 部署数据路径。不启用公网 Vite 开发服务器或 Vitest UI；运行服务使用生产构建和 Fastify。
 
-应用发布版本必须对应实际获准提交的 40 位 SHA。不能把旧交接 SHA 填入新代码配置；本轮尚未提交或推送。
+应用发布版本必须对应实际获准提交的 40 位 SHA。当前基线为 `3e20be0e6881941bc339dc569392bafaf25fe83a`；本轮适配尚未提交，不能用此基线 SHA 冒充适配后的发布版本。后续提交、推送分别批准。
+
+Ubuntu 26.04 主机预检和 Node 的 SQLite 基础检查已由用户终端回传，项目运行兼容性仍待验证。服务模板和本手册统一使用 `/opt/255-phonograph/node24/bin/node`，已安装链接目标为 `/opt/255-phonograph/node-v24.21.0-linux-x64/`；两者由 root 管理，普通用户不可修改。构建时须把该 Node 的 bin 目录放在 PATH 首位，核实 `node --version`、`node -p process.execPath` 与 npm 所用解释器；应用 systemd 还没有实际安装或启动。
 
 ## 3. 帐号、文件和网络边界
 
@@ -56,7 +58,7 @@ sudo systemd-run --wait --collect --pipe --unit=phonograph-initialize \
   --property=User=phonograph --property=Group=phonograph \
   --property=WorkingDirectory=/srv/255-phonograph/current \
   --property=EnvironmentFile=/etc/255-phonograph/phonograph.env \
-  /usr/bin/node /srv/255-phonograph/current/server-dist/server/index.js --initialize-data
+  /opt/255-phonograph/node24/bin/node /srv/255-phonograph/current/server-dist/server/index.js --initialize-data
 ```
 
 初始化生成 schema、过渡记录和运行时示范媒体，并写 `.initialized.json`。半成品或已有数据库一律拒绝覆盖，不能通过删除数据库解决失败。普通 service 不得保留初始化开关；缺失标记、数据库或有效 schema 时必须失败关闭。
@@ -77,13 +79,13 @@ Caddy 先认证再返回维护 503，移除上游 Authorization，重写真实�
 
 在所有者控制的设备上创建 age 密钥；私钥保管在服务器之外并验证有可用副本。服务器只放 age 公钥 recipients 文件。不得把私钥或含私钥的文件复制进项目。独立恢复时经单独批准使用私钥文件路径，不在参数中放私钥内容。
 
-[备份配置模板](../../deploy/backup-config.example.json)填入实际桶、`ap-shanghai`、`phonograph-backups/<独占 UUID>/`、实际 SHA 和域名。空示例值故意不能通过验证。运维环境 `/etc/255-phonograph/backup.env` 仅包含 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY`，root:root 0600；曲库备份不包含它们。为指定前缀授予最小对象 put/head/get/delete 权限；手工恢复可使用独立只读凭据。禁止公共读写、网页托管和浏览器 CORS。
+[备份配置模板](../../deploy/backup-config.example.json)默认地域为 `ap-chengdu`，填入单独批准创建的实际桶、`phonograph-backups/<独占 UUID>/`、实际发布 SHA 和域名。成都二区不是地域参数，不填 `ap-chengdu-2`。代码保留 `ap-shanghai` 兼容性，拒绝其他地域。桶和前缀尚未创建，空示例值故意不能通过验证。运维环境 `/etc/255-phonograph/backup.env` 仅包含 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY`，root:root 0600；曲库备份不包含它们。为指定前缀授予最小对象 put/head/get/delete 权限；手工恢复可使用独立只读凭据。禁止公共读写、网页托管和浏览器 CORS。
 
 先单独批准隔离对象 put/head/get/delete 联调，核实 Lighthouse COS 的实际 API 和权限。再批准生产前缀空索引初始化；已有索引时命令拒绝，例行备份遇到 404 不自动创建空索引。
 
 ```sh
 sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backup.lock \
-  /usr/bin/node /srv/255-phonograph/current/server-dist/server/ops/cli.js initialize-index \
+  /opt/255-phonograph/node24/bin/node /srv/255-phonograph/current/server-dist/server/ops/cli.js initialize-index \
   --config /etc/255-phonograph/backup.json
 ```
 
@@ -110,7 +112,7 @@ sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backu
 ```sh
 # Replace the literal placeholders only after the concrete restore paths and UUID are approved.
 sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backup.lock \
-  /usr/bin/node /srv/255-phonograph/current/server-dist/server/ops/cli.js restore \
+  /opt/255-phonograph/node24/bin/node /srv/255-phonograph/current/server-dist/server/ops/cli.js restore \
   --config /etc/255-phonograph/backup.json --id APPROVED_BACKUP_UUID \
   --identity-file /APPROVED/EXTERNAL/IDENTITY --target /APPROVED/NEW/RESTORE_DIRECTORY
 ```
@@ -194,3 +196,86 @@ sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backu
 | COS 与备份 | 实际桶、区域、隔离测试对象键、`phonograph-backups/<实际 UUID>/`、最小权限凭据使用方式、每日 05:00 与七份保留范围 | 先单独批准合成密文 put/head/get/delete；通过后再批准生产索引初始化与定时备份。验证公共访问拒绝、下载校验及实际账单。 |
 
 本表是待填写的审批材料，不是远端写入许可。软件安装涉及的包管理器系统文件、服务账号、所有测试/构建生成物和清理动作也须列入对应环境审批。真实上传、迁移、恢复切换、提交和推送仍分别批准。
+
+## 11. 2026-09-30 成都与 Ubuntu 26.04 当前执行要求
+
+### 11.1 事实、授权与保留项
+
+第 1 节采购事实来自用户交接的已登录腾讯云页面读取结果，本窗口没有重新操作控制台或服务器。Ubuntu 26.04 只读检查未发现必须重装的依据，系统仓库 Node 22、默认 `/tmp` 为 tmpfs 的结论仍须结合实际主机核实。尚未连接终端、安装、部署、创建备份桶或提交备案；不标 Linux 通过。
+
+用户已批准本地 14 文件适配及列明产物。现有工作树、分支和主仓库迁移包继续保留；未批准提交、推送和远端操作。SSH 主机指纹、维护来源、登录密钥使用方式、实际安装架构/版本、桶名、对象前缀和真实音频仍待明确。域名和实例已购不构成这些操作的许可。
+
+### 11.2 Linux 临时目录与磁盘检查
+
+- 远端执行审批时列出仓库外测试根目录、TMPDIR、npm 缓存、日志、构建、合成数据、测试密钥与清理路径的确切绝对路径。本轮不创建任何 Linux 路径。
+- 在运行大文件测试前，用 `findmnt -T <已批准目录>`、`df -h <已批准目录>` 核实实际挂载、容量和剩余空间；不能仅凭目录名推断是磁盘。默认 `/tmp`、`/run` 或其他 tmpfs 不用于音频边界测试、快照、归档、恢复暂存。
+- Linux 设置 `TMPDIR=<已批准的仓库外磁盘目录>`，检查 `node -p "require('node:os').tmpdir()"` 确认生效。不要将临时目录放在代码目录内，也不要弱化初始化/备份的路径保护。
+- 生产备份 `workDir` 保持 `/var/backups/255-phonograph`；检查该目录和恢复目标父目录的挂载及空间。`restore.ts` 的下载暂存位于 workDir，恢复和解密暂存位于目标父目录；两处都需批准且能容纳所需副本。
+- 保留应用的 `PrivateTmp=true` 等保护项；业务媒体仍使用明确的数据目录。2 GB 内存环境的安装、构建与大文件测试峰值尚未测，不自动增加 swap 或更改内存限制。
+
+### 11.3 Node 和配置工具验收
+
+后续安装批准需包含专用 Node 路径及官方发布物实际版本/架构和校验方式。安装完成后，先执行 `/opt/255-phonograph/node24/bin/node --version`，再在该解释器下验证 `node:sqlite` 的 `DatabaseSync` 和 `backup` API。三个 service 的 ExecStart、备份 ExecStopPost、初始化与手工 CLI 必须解析到同一已验证 Node 24。确切补丁版本在远端准备时固定，本地 24.16.0 通过不代表远端已安装。
+
+Node 路径和发布代码真实存在后，才能运行 `systemd-analyze verify` 并进行服务启动/退出/补偿实测。Caddy validate、Fail2ban 合成及真实日志匹配、age 真加密、flock 与硬终止恢复仍待执行；Fail2ban jail 保持 disabled。模板原有 TimeoutStopSec=90 保留，计划当前示例同步为 90；历史记录中曾出现的 30 秒不能作为实际服务值。
+
+### 11.4 成都费用口径
+
+2026-09-30 复核[腾讯云 Lighthouse COS 定价](https://cloud.tencent.com/document/product/1207/88189)：成都标准存储 `0.0033` 元/GB/日，上海 `0.00393333`，两地公网下行 `0.5` 元/GB。健康检查按配置地域估算全部 active、pendingDelete 和已知未确认对象；服务器与域名继续使用 45 元/月和 39 元/年的参考基数，实际成交与续费金额待核对。
+
+成都全部备份日均合计 10 GB、30 天且无公网下载时，参考总额 `45 + 39 / 12 + 10 × 0.0033 × 30 = 49.24` 元/月。不是每份 10 GB 额度，也不表示已创建桶或产生账单。本地验证结果见[验收记录](private-cloud-acceptance.md)最新章节。
+
+## 12. 2026-09-30 服务器准备交接与内部测试操作边界
+
+### 12.1 当前事实与操作方式
+
+本节接续用户提供的服务器终端回传记录，本次没有重新连接主机。第 10–11 节中尚未连接或安装的表述为历史状态；当前以本节和验收记录末尾为准。
+
+- 实例 `lhins-856nphe0`，公网 IP `1.14.111.74`；Ubuntu 26.04 LTS、x86_64、systemd 259，登录用户 ubuntu（uid/gid 1000、sudo 组）。SSH ED25519 主机指纹为 `SHA256:i7AXzi986iOpMek5lDe4XGlW18cqfdcjKktmeBpc58A`。
+- 当前采用[腾讯云实例终端](https://orcaterm.cloud.tencent.com/terminal?type=lighthouse&instanceId=lhins-856nphe0&region=ap-chengdu&from=lh_console_login_btn)，由用户手工执行和回传结果。每次只提供一条命令，代码框仅含命令；不混入提示符和预期输出。不重试旧浏览器命令，不自动输入；如以后获准恢复自动操作，先确认当前终端状态。
+- 不要求在公司电脑保存 SSH 私钥，不收集密码或密钥，不重置管理密码。源码上传使用控制台；实际上传落盘路径在批准上传前确认。
+- 预检内存约 1.9 GiB、swap 2 GiB、根分区剩余约 32 GB；`/tmp` 为 tmpfs，`/var/tmp` 在磁盘根分区。大文件测试先复核挂载和空间，并使用仓库外磁盘 TMPDIR。
+- 交接显示云防火墙开放 22/80 TCP 和 ICMP、无 443 规则，UFW inactive；80/443 无监听。此记录不表示已经完成 SSH 来源收紧或外部端口验收，不在本次变更防火墙。
+
+### 12.2 已安装 Node 与保留文件
+
+经此前单独批准，已从 Node 官方下载发布物并验证 SHA-256，安装 Node 24.21.0/npm 11.19.0。实际路径 `/opt/255-phonograph/node-v24.21.0-linux-x64/`，固定链接 `/opt/255-phonograph/node24` 指向该路径；程序及路径由 root 管理，普通用户不可修改。
+
+`process.execPath`、SQLite 内存 `SELECT 1` 和 backup API 存在性检查通过。项目尚未在此 Node 补丁版本运行测试。所有初始化、普通启动、备份补偿和健康命令继续使用 `/opt/255-phonograph/node24/bin/node`；npm 构建须显式设置同一 bin 目录为 PATH 首项。
+
+保留 `/var/tmp/255-phonograph-node24-install/` 中的官方安装包、`SHASUMS256.txt` 及验证时可能产生的 npm-cache。本次不重新安装或清理。
+
+### 12.3 Caddy 来源、校验和禁止启动状态
+
+Ubuntu 仓库候选 2.6.2-14 不支持项目 `basic_auth` 写法，上一阶段经单独批准添加官方稳定源并安装已校验包。已写入的系统文件为：
+
+- `/usr/share/keyrings/caddy-stable-archive-keyring.gpg`
+- `/etc/apt/sources.list.d/caddy-stable.list`
+
+源地址 `https://dl.cloudsmith.io/public/caddy/stable/deb/debian`，suite `any-version`，component `main`，通过 signed-by 限定上述公钥。主指纹 `6576 0C51 EDEA 2017 CEA2 CA15 155B 6D79 CA56 EA34`；旧子密钥有过期记录，安装时使用的签名子密钥为 `2F5C3BE9886ACD2913299EFBABA1F9B8875A6661`。
+
+交接中的校验证据：
+
+| 文件或步骤 | 已回传结果 |
+| --- | --- |
+| InRelease | Good signature from Caddy Web Server。 |
+| Packages.gz SHA-256 | 9d0444351ae346b5c36684097adfeb718593c052356ac4c02c339e9e3d5cf89a |
+| caddy_2.11.4_linux_amd64.deb SHA-256 | c41708ffb4af9bc6d19f7d22a7a034804352a21ecc62e1d3dfe3d58e30b38a3e |
+| deb 大小 | 17265372 字节；文件清单、控制信息及 postinst 已检查。 |
+| 包状态 | caddy version 为 v2.11.4；dpkg-query 为 install ok installed；dpkg --audit 无输出。 |
+
+postinst 会创建账号并尝试启用/启动服务，因此安装前已 mask `caddy.service`、`caddy-api.service`，再执行本地校验包的 dpkg 安装。最终两者均 masked/inactive；`/etc/systemd/system/caddy.service` 和 `caddy-api.service` 均链接 `/dev/null`，未发现额外 Caddy 开机启动链接。安装时的 preset failed/masked 提示与预先禁止启动有关，包状态另行确认正常。**保持两个 mask，不解除、不启动 Caddy。**
+
+Caddy 账号 uid 999/gid 983、附加组 www-data，home `/var/lib/caddy`，shell `/usr/sbin/nologin`；`/var/lib/caddy` 为 caddy:caddy 0750，`/var/log/caddy` 为 caddy:caddy 0755。最近端口检查 80/443 无监听。
+
+保留 `/var/tmp/255-phonograph-caddy-install/` 中的 `caddy-stable.asc`、`caddy-stable.list`、`gnupg/`、`InRelease`、`Packages.gz`、`caddy_2.11.4_linux_amd64.deb`。该阶段没有运行全局 apt update，仓库元数据通过 curl 下载并逐级验签/校验。本节记录安装历史，不提供重新安装授权。
+
+### 12.4 下一步的审批与验证关口
+
+1. 完成本次四文档更新及检查后，审核现有 14 文件变更；单独批准提交，取得包含适配的真实 40 位 SHA。当前 HEAD 不能代表未提交适配。
+2. 按实施计划白名单审查源码包内容，确定本地输出文件后单独批准生成；确定上传文件与实际落盘路径后单独批准控制台上传。不得上传 Windows node_modules、密钥、数据库、真实媒体、验证目录或迁移包。
+3. 候选隔离根为 `/var/tmp/255-phonograph-linux-test-20260930/`，source、npm-cache、tmp、logs、app-data 分开。该目录树尚未获准创建；完整写入与清理范围见实施计划末尾。先核实路径和磁盘，再批准安装依赖、测试和构建；不用 `/tmp`，不覆盖旧数据。
+4. 在 Node 24.21.0 下先 npm ci，再全量测试和构建；内部应用初始化与启动另列具体配置、端口、合成数据和日志范围。private-cloud 要求 HTTPS origin、真实发布 SHA、明确绝对数据目录，且仅监听回环地址。初始化会生成 SQLite、标记和示范媒体。
+5. 内部 HTTP 验证不等于 HTTPS、私人入口或浏览器 Secure Cookie 验收。Caddy 保持 masked，不安装应用服务、不修改 DNS 或防火墙。之后再分别准备真实 Caddy 配置、systemd、age、Fail2ban、COS 与备份恢复；全部联调、家庭体验和三天试运行完成前，不标个人测试可用。
+
+本次授权仅覆盖四份文档，不生成上述候选目录、归档或运行数据。已有安装准备目录、主仓库迁移包及原验证产物保留；清理也必须先列范围审批。

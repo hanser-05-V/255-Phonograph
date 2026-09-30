@@ -12,6 +12,13 @@ const config = {
   cos: {bucket: 'test-backups-1234567890', region: 'ap-shanghai', prefix: 'phonograph-backups/00000000-0000-4000-8000-000000000000/'},
 };
 it('accepts separated absolute paths and a dedicated object prefix', () => { expect(validateBackupConfig(config)).toEqual(config); });
+it.each(['ap-shanghai', 'ap-chengdu'])('accepts the approved backup region %s', region => {
+  const sample = {...config, cos: {...config.cos, region}};
+  expect(validateBackupConfig(sample)).toEqual(sample);
+});
+it.each(['', 'ap-beijing', 'ap-chengdu-2', 'AP-CHENGDU', 'ap-chengdu ', null, 123])('rejects unsupported region %s', region => {
+  expect(() => validateBackupConfig({...config, cos: {...config.cos, region}})).toThrow('INVALID_BACKUP_CONFIG');
+});
 it.each([
   {workDir: config.dataDir}, {stateDir: path.join(config.workDir, 'nested')}, {dataDir: 'relative'},
   {applicationUnit: 'other.service'}, {applicationOrigin: 'http://example.com'}, {siteOrigin: 'http://phonograph.invalid'},
@@ -23,7 +30,7 @@ it.each([
 it('loads isolated public configuration and rejects secret keys or linked operational paths', async () => {
   const temporary = await mkdtemp(path.join(tmpdir(), 'phonograph-config-read-'));
   try {
-    const sample = {...config, dataDir: path.join(temporary, 'data'), workDir: path.join(temporary, 'work'), stateDir: path.join(temporary, 'state'),
+    const sample = {...config, cos: {...config.cos, region: 'ap-chengdu'}, dataDir: path.join(temporary, 'data'), workDir: path.join(temporary, 'work'), stateDir: path.join(temporary, 'state'),
       maintenanceFile: path.join(temporary, 'run', 'maintenance'), ageRecipientsFile: path.join(temporary, 'recipients')};
     const file = path.join(temporary, 'backup.json');
     await writeFile(file, JSON.stringify(sample), {mode: 0o600});

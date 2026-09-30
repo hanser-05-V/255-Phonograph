@@ -2,7 +2,7 @@ export type BackupConfig = {
   dataDir: string; workDir: string; stateDir: string; maintenanceFile: string;
   applicationUnit: 'phonograph.service'; applicationOrigin: 'http://127.0.0.1:3001';
   siteOrigin: string; releaseId: string; ageRecipientsFile: string;
-  cos: {bucket: string; region: 'ap-shanghai'; prefix: string};
+  cos: {bucket: string; region: 'ap-shanghai' | 'ap-chengdu'; prefix: string};
 };
 export type BackupFile = {path: string; bytes: number; sha256: string};
 export type BackupManifest = {

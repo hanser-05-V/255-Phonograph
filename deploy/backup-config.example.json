@@ -10,7 +10,7 @@
   "ageRecipientsFile": "/etc/255-phonograph/age-recipients.txt",
   "cos": {
     "bucket": "",
-    "region": "ap-shanghai",
+    "region": "ap-chengdu",
     "prefix": ""
   }
 }

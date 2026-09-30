@@ -24,7 +24,8 @@ export function validateBackupConfig(value: unknown): BackupConfig {
     resolveAppConfig({PHONOGRAPH_DEPLOYMENT: 'private-cloud', PHONOGRAPH_DATA_DIR: config.dataDir,
       PHONOGRAPH_SITE_ORIGIN: config.siteOrigin, PHONOGRAPH_RELEASE_ID: config.releaseId}, process.cwd());
     if (!config.cos || Object.keys(config.cos).some(k => !['bucket', 'region', 'prefix'].includes(k)) ||
-        !/^[a-z0-9][a-z0-9-]{1,61}-\d+$/.test(config.cos.bucket) || config.cos.region !== 'ap-shanghai' ||
+        !/^[a-z0-9][a-z0-9-]{1,61}-\d+$/.test(config.cos.bucket) ||
+        (config.cos.region !== 'ap-shanghai' && config.cos.region !== 'ap-chengdu') ||
         !config.cos.prefix.startsWith('phonograph-backups/') || !config.cos.prefix.endsWith('/') ||
         !UUID.test(config.cos.prefix.slice(19, -1))) throw new Error();
     return structuredClone(config);

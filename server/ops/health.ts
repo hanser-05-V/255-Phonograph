@@ -3,6 +3,12 @@ import path from 'node:path';
 import {assertRealPath} from '../runtime/data-directory.js';
 import {OpsError, type BackupConfig, type BackupIndex, type BackupState} from './contracts.js';
 import type {DiskStats} from '../storage/upload-capacity.js';
+// Lighthouse COS list prices checked 2026-09-30; estimates are not actual bills.
+// https://cloud.tencent.com/document/product/1207/88189
+const storageCnyPerGbDay: Record<BackupConfig['cos']['region'], number> = {
+  'ap-shanghai': 0.00393333,
+  'ap-chengdu': 0.0033,
+};
 export type HealthPorts = {now: () => Date; applicationOk: () => Promise<boolean>; readState: () => Promise<BackupState>;
   readIndex: () => Promise<BackupIndex>; disk: (directory: string) => Promise<DiskStats>};
 export async function collectHealth(config: BackupConfig, ports: HealthPorts) {
@@ -31,7 +37,7 @@ export async function collectHealth(config: BackupConfig, ports: HealthPorts) {
         ![...index.value.active, ...index.value.pendingDelete].some(r => r.id === state.value.pendingReceipt!.id)) {
       backupStoredBytes += state.value.pendingReceipt.bytes;
     }
-    estimatedMonthlyCny = Math.round((45 + 39 / 12 + backupStoredBytes / 1e9 * 0.00393333 * 30) * 100) / 100;
+    estimatedMonthlyCny = Math.round((45 + 39 / 12 + backupStoredBytes / 1e9 * storageCnyPerGbDay[config.cos.region] * 30) * 100) / 100;
     if (pendingDeleteCount) warnings.push('RETENTION_RETRY');
     if (estimatedMonthlyCny > 50) warnings.push('BUDGET_EXCEEDED');
     else if (estimatedMonthlyCny >= 45) warnings.push('BUDGET_WATCH');

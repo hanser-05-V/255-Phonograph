@@ -6,11 +6,13 @@
 
 **Architecture:** Caddy 私人入口代理本机单进程 Fastify；Node.js 24 自带 SQLite 与本地媒体存储使用固定数据目录。独立运维程序在停写窗口制作一致快照，恢复应用后用 age 加密并通过 COS SDK 上传到私有 Lighthouse COS；对象存储不参与播放器媒体分发。
 
-**Tech Stack:** 现有 TypeScript/Fastify/React/Vite/Vitest、Node.js 24、Ubuntu 24.04、systemd、Caddy、Fail2ban、age、官方 `cos-nodejs-sdk-v5`、Node `tar` 包。
+**Tech Stack:** 现有 TypeScript/Fastify/React/Vite/Vitest、Node.js 24、Ubuntu 26.04（已购镜像，运行待验）、systemd、Caddy、Fail2ban、age、官方 `cos-nodejs-sdk-v5`、Node `tar` 包。
+
+**当前执行入口（2026-09-30）：** 以末尾“测试部署准备”章节为准。服务器已完成预检和 Node/Caddy 安装（用户终端回传的交接证据）；Caddy 保持 masked，应用尚未上传。本次仅批准四份文档更新，Linux 测试及后续远端写入仍须对应批准。
 
 **Spec:** [已确认设计规格](../specs/2026-09-28-private-cloud-test-deployment-design.md)。
 
-**状态：** 2026-09-29 用户批准执行 Task 1–10 的本地实现与可用环境验证，包含 F01–F32 对应文件及本计划列明的生成产物。Task 11–12 的外部状态和真实数据操作尚未授权。以下仅按实际证据更新进度。
+**状态：** 2026-09-29 用户批准执行 Task 1–10 的本地实现与可用环境验证，包含 F01–F32 对应文件及当时列明的生成产物。后续采购、服务器预检和 Node/Caddy 安装按交接已有各自批准与执行记录，见末尾当前章节；不因此授权 Task 11–12 的其余远端操作和真实数据操作。
 
 ### 执行记录
 
@@ -23,7 +25,7 @@
 ## 1. 执行边界
 
 - 唯一开发根目录：`E:\codex\hanser\.worktrees\pc-music-player`，分支 `codex/pc-music-player`。本文代码命令均从此目录执行，文中的仓库相对路径均相对此绝对根目录。
-- 基线 HEAD：`000e3344f0f5dfb06e8ce18c689efdc716cd8f8d`。开始执行时只读核实状态；当前允许存在本计划和配套规格两个未提交文档，不把它们当作意外更改。
+- 当前适配基线 HEAD：`3e20be0e6881941bc339dc569392bafaf25fe83a`。2026-09-30 适配前工作树未列出变更，目前累计 14 个文件未提交；本次仅批准更新其中四份部署文档，不复用此前测试/构建产物授权。原实施基线和当时两个未提交文档的状态保留在历史执行记录中。
 - 主仓库的迁移包目录保持原样；不在 main 开发，不重建工作树，不重置密码，不读写现有真实曲库补测试。
 - 计划批准不替代付费采购、远端部署、真实媒体上传/迁移、覆盖恢复、Git 提交或推送授权。这些操作分别在 Task 11–12 中停在明确关口。
 - 每个开发任务开始前核对本任务文件表和生成产物范围。若批准未覆盖该表，先申请；若实现证明需要扩展表，列明新增文件和原因后再申请。允许在已批准的同一任务范围内修复失败，不要求为每一行修改再次审批。
@@ -33,7 +35,7 @@
 
 ### 已知事实与执行输入
 
-当前未提供服务器、域名、云凭据或真实音频。它们在采购/部署前由用户提供，不能填入猜测值。本文 `.invalid` 域名和 `127.0.0.1` 测试地址只是隔离测试数据，不是待购买域名。运行配置通过独立受限文件提供，仓库中只有无秘密模板。
+当前域名为 `255fm.cn`，成都实例为 `lhins-856nphe0`（`1.14.111.74`），详细事实见最新章节。SSH ED25519 主机指纹已在交接记录；继续采用腾讯云控制台由用户逐条执行命令，不在公司电脑保存 SSH 私钥。云凭据、桶/前缀与真实音频尚未提供。本文 `.invalid` 域名和 `127.0.0.1` 测试地址只是隔离测试数据。运行配置通过独立受限文件提供，仓库中只有无秘密模板。
 
 已发现必须处理的测试问题：`server/config.test.ts` 与 `server/app.test.ts` 写死 Windows 路径；`seedPublishedAudio()` 只创建媒体对象，并没有创建已发布歌曲。上线权限修复不能靠继续使用无发布引用的测试夹具蒙混通过。
 
@@ -114,7 +116,7 @@ export type BackupConfig = {
   siteOrigin: string;
   releaseId: string;
   ageRecipientsFile: string;
-  cos: {bucket: string; region: 'ap-shanghai'; prefix: string};
+  cos: {bucket: string; region: 'ap-shanghai' | 'ap-chengdu'; prefix: string};
 };
 export type BackupFile = {path: string; bytes: number; sha256: string};
 export type BackupManifest = {
@@ -419,7 +421,7 @@ expect(state.applicationRecovered).toBe(true);
 - [ ] **8.4 配置互斥。** systemd 备份单元和手工 runbook 都使用 `/usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backup.lock` 包裹运维命令。同一实例只有一个备份写入者；75 表示已有任务，不标新成功。CLI 帮助明确生产环境不得绕过锁直接执行 backup。测试验证已有锁时不停止应用、不上传、不轮换。
 - [x] **8.5 隔离恢复。** restore.ts 导出 `restoreBackup(config, id, identityFile, target, store): Promise<void>`：验证 target 不存在且不在生产数据目录/代码目录中 → 下载 exact receipt 到受限 workDir → 验密文 SHA → age 解密/安全提取 → verifySnapshot → 验证所有媒体引用 → 在恢复数据库事务内 DELETE admin_sessions 和 pending_uploads → 清理恢复副本中对应 tmp 文件 → 关闭数据库并重新生成恢复副本清单 → verifySnapshot → 从新隔离目录交付。新清单重新计算已变更数据库与剩余文件的 hash，并填 restoredFrom 指向原备份编号、密文 SHA 和恢复时间，避免用原清单误报撤销会话后的合法变化。保留完整原始备份及原清单；不得运行种子或迁移掩盖缺失记录。target 已有任意内容时拒绝。
 - [ ] **8.6 恢复回归。** 覆盖正确恢复、错误私钥、损坏包、缺文件、恶意 tar、已有 target、同源 target、admin hash 保留而旧 Cookie 无效、事务失败不交付半成品。对原库及原包做前后哈希/记录比较。恢复失败可以保留有明确错误标记的隔离暂存，不删除任何生产目录。
-- [x] **8.7 实现 health。** 输出 JSON 字段：checkedAt、applicationOk、diskUsedPercent、backupAgeHours、backupPhase、pendingDeleteCount、backupStoredBytes、estimatedMonthlyCny、warnings。来源为本机健康请求、statfs、状态文件和成功索引；按规格公式估算 server=45、domain=39/12、storage=bytes 转 GB×0.00393333×30。45/50 元阈值、80/90% 磁盘阈值、备份超 24 小时均生成稳定警告码；这个估算不冒充实际账单。失败时返回非零并写本机状态，不擅自发送消息。
+- [x] **8.7 实现 health。** 输出 JSON 字段：checkedAt、applicationOk、diskUsedPercent、backupAgeHours、backupPhase、pendingDeleteCount、backupStoredBytes、estimatedMonthlyCny、warnings。来源为本机健康请求、statfs、状态文件和成功索引；估算 server=45、domain=39/12、storage=bytes 转 GB×地域日单价×30。2026-09-30 适配后成都单价为 0.0033、上海为 0.00393333；固定成本仍为参考值。45/50 元阈值、80/90% 磁盘阈值、备份超 24 小时均生成稳定警告码；这个估算不冒充实际账单。失败时返回非零并写本机状态，不擅自发送消息。
 - [x] **8.8 验证。** `npm run test:server -- server/ops/backup.test.ts server/ops/restore.test.ts server/ops/cli.test.ts server/ops/health.test.ts`，再 `npm run typecheck`。确认 CLI 被 import 时不执行副作用，仅在 entryPoint 匹配时运行，测试不请求任何云 API。
 
 ## Task 9：服务器配置模板与运维文档
@@ -484,10 +486,10 @@ User=phonograph
 Group=phonograph
 WorkingDirectory=/srv/255-phonograph/current
 EnvironmentFile=/etc/255-phonograph/phonograph.env
-ExecStart=/usr/bin/node server-dist/server/index.js
+ExecStart=/opt/255-phonograph/node24/bin/node server-dist/server/index.js
 Restart=on-failure
 RestartSec=5
-TimeoutStopSec=30
+TimeoutStopSec=90
 KillSignal=SIGTERM
 UMask=0077
 NoNewPrivileges=true
@@ -500,7 +502,7 @@ ReadWritePaths=/var/lib/255-phonograph
 WantedBy=multi-user.target
 ```
 
-Node 安装必须使 `/usr/bin/node` 指向已核实的 Node.js 24；若官方安装实际路径不同，在同一批准模板范围中修正并重验。`current` 可指向 releases 内的已验证版本，数据目录保持真实路径。保护项在 Linux 上实测，不在模板验证失败时盲目全部删除。
+2026-09-30 更新：三个 service 模板均使用 `/opt/255-phonograph/node24/bin/node`，首次初始化和所有手工运维命令同步此路径。经远端安装批准后，将核验过的官方 Node.js 24 发布物安装到专用位置，记录架构、补丁版本和校验值；目录及解析目标由 root 管理、应用用户不可写。不要依赖发行版 Node 22 或交互式 shell 的版本管理器。`current` 可指向 releases 内的已验证版本，数据目录保持真实路径。保护项仍须 Linux 实测。
 
 - [ ] **9.3 备份与检查单元。** backup.service 为 Type=oneshot，读取非秘密配置路径和仅 root 可读的凭据环境文件，ExecStart 用 flock 包住 `node /srv/255-phonograph/current/server-dist/server/ops/cli.js backup --config /etc/255-phonograph/backup.json`；User=root 仅用于停启服务和读取一致快照，配置与已发布代码必须 root 所有且应用用户不可写。UMask=0077、TimeoutStartSec=30min，超时/中断的恢复路径必须测试。备份不自动启动原本停止的应用。
 
@@ -550,7 +552,7 @@ git status --short --untracked-files=all
 记录真实文件数、通过/失败数、运行版本及退出码；不写死交接时的 163/157 数量。首次测试失败先定位原因，不为达到旧数量删除测试。无新改动或失败时不反复跑全量。
 
 - [x] **10.2 审查改动。** 逐条核对本计划文件表，检查无密码/私钥/数据库/媒体/迁移包误入变更，确认永久删除交互和播放器单一音频实例未改变。只报告实际审查覆盖的文件与直接依赖，不声称审计全项目。
-- [ ] **10.3 Linux 隔离环境验证。** 在获准的 Ubuntu 24.04 环境执行相同自动化检查及生产构建；测试临时数据路径与真实 `/var/lib/255-phonograph` 分开。记录 node、Caddy、age、Fail2ban、systemd 和依赖锁版本。
+- [ ] **10.3 Linux 隔离环境验证。** 在另行获准的 Ubuntu 26.04 环境执行相同自动化检查及生产构建；测试临时数据路径与真实 `/var/lib/255-phonograph` 分开。TMPDIR 使用已批准的仓库外磁盘目录，检查实际挂载和空间，不使用 tmpfs 承载大文件。记录 node、Caddy、age、Fail2ban、systemd 和依赖锁版本。
 
 ```sh
 node --version
@@ -575,7 +577,7 @@ systemd 验证在对应可执行文件存在、测试版本路径已准备的环
 **Files:** F29、F30、F32 仅在批准后更新实际结果。此任务包含外部状态变化，不能从计划获批自动推断已授权购买或部署。
 
 - [ ] **11.1 先完成可审阅材料。** Task 1–10 的实现、模板、本地验证和已知限制准备完成后，提供实际版本/差异、配置清单和费用单，再请求采购确认。若 Linux 验证必须依赖尚未购买的服务器，明确该例外及尚未通过的 Linux 检查；不得标它们通过。
-- [ ] **11.2 核实官方订单。** 在用户自己的腾讯云账号核对上海、锐驰型 2 核 2 GB/40 GB、Ubuntu 24.04、服务器三个月、无额外数据盘；普通非溢价 `.cn` 域名一年；同地域 Lighthouse COS 按量计费。规格中的 135+39 元是预估，最终订单变价/资源缺货时报告实际差异并等待批准。不开自动续费、不加商业证书/CDN/安全套餐或付费控制面板。
+- [ ] **11.2 核实官方订单。** 2026-09-30 已收到成都二区、锐驰型 2 核 2 GB/40 GB、Ubuntu 26.04、域名 255fm.cn 已购的交接事实。继续核对实际成交和续费金额、购买期限、域名实名/备案资格；同地域 Lighthouse COS 尚未创建，需另行批准。原上海/24.04 选型及 135+39 元预算保留为历史依据。实例自动续费已关闭，不自动加购额外产品。
 - [ ] **11.3 用户处理官方手续。** 用户选择实际可注册域名，在官方页面完成实名、备案和付款；不把身份材料复制到仓库或聊天。账号尚未登录或需要验证码时由用户完成。备案期间可准备服务器内部环境，不开域名网站服务绕过备案。
 - [ ] **11.4 请求具体远端写入批准。** 提供实际服务器 ID、IP、SSH 主机指纹、代码版本，以及下表路径与动作。用户批准后才能安装软件、创建用户、写配置、放行端口和初始化。不要索取明文密码或私钥聊天粘贴，优先本机受限 SSH key 与确认过的主机指纹。
 
@@ -729,3 +731,109 @@ systemd 验证在对应可执行文件存在、测试版本路径已准备的环
 - 远端清单已按主机身份、真实提交 SHA、发布/数据/配置目录、五个 systemd 单元、Caddy/Fail2ban/journald、端口、运维状态和 COS 对象边界整理。实际 ID/IP/指纹、域名、SHA、桶、测试对象键及生产前缀保持待填；不能用旧基线 SHA 代表当前未提交实现。
 - 6.6、8.4、8.6、9.2–9.5、10.3–10.6 和 Task 11–12 的复选框保持不变。11.1 已有可审阅材料草案，但尚未形成实际订单及可执行环境批准单；不将 Task 11 标为完成。真实 COS 对象测试、生产索引/定时备份、真实音频、恢复/迁移、提交和推送仍分别批准。
 - 本轮验证方法：只读比较写入前后源码文件 hash 与路径集合，确认变化限于三份文档；检查历史内容保留、文档链接、费用计算、待验收状态和 `git diff --check`。不新建报告文件，不运行会生成产物的测试或构建；实际结果在本窗口交付中说明。
+
+### 2026-09-30 成都与 Ubuntu 26.04 本地适配
+
+#### 当前基线与采购事实
+
+- 实际工作树 `E:\codex\hanser\.worktrees\pc-music-player`，分支 `codex/pc-music-player`，HEAD `3e20be0e6881941bc339dc569392bafaf25fe83a`。本窗口适配前 Git 未列出变更，同时提示全局 ignore 文件读取权限警告；主仓库迁移包保留。开发分支已推送、main 未合并为用户交接事实，本窗口未重新查询远端。
+- 用户交接说明：已登录腾讯云页面确认域名 `255fm.cn` 已购、状态正常；拟四川个人备案，尚未提交。实例 `lhins-856nphe0` / `255-phonograph`，成都二区，公网 IP `1.14.111.74`，锐驰型 2 核 2 GB、40 GB SSD、200 Mbps 峰值、无限流量，Ubuntu Server 26.04 LTS 64bit。到期原值 `2026-12-31 11:53:38`，自动续费关闭。
+- 本窗口没有重新访问控制台或连接终端。成交/续费金额、域名实名、备案资格、SSH 主机指纹与连接方式仍待核对；未安装、部署、创建桶或处理真实音频。
+- Ubuntu 26.04 只读兼容性检查已在交接前完成：没有必须重装的依据，但未通过运行验证；系统仓库 Node 22、默认 `/tmp` 为 tmpfs。实际主机状态仍须未来获准只读检查确认。
+
+#### 批准范围与执行安排
+
+用户在审阅文件、影响、生成物与验证方法后回复“批准”。本次恰好 14 个现有文件：
+
+1. `server/ops/contracts.ts`
+2. `server/ops/config.ts`
+3. `server/ops/config.test.ts`
+4. `server/ops/backup-store.test.ts`
+5. `server/ops/health.ts`
+6. `server/ops/health.test.ts`
+7. `deploy/backup-config.example.json`
+8. `deploy/systemd/phonograph.service`
+9. `deploy/systemd/phonograph-backup.service`
+10. `deploy/systemd/phonograph-health.service`
+11. `docs/superpowers/specs/2026-09-28-private-cloud-test-deployment-design.md`
+12. 本实施计划
+13. `docs/deployment/private-cloud-acceptance.md`
+14. `docs/deployment/private-cloud-runbook.md`
+
+批准的工作树内产物为 `dist/`、`server-dist/`、`node_modules/.vite/`、`node_modules/.vite-temp/`；报告目录 `.verification/private-cloud/chengdu-ubuntu26/` 下仅 `focused-red.log`、`focused-tests.log`、`tests.log`、`build.log` 和 `npm-cache/`。仓库外合成夹具目录为 `C:\Users\Administrator\AppData\Local\Temp\255-phonograph-chengdu-ubuntu26-20260930\`，TEMP/TMP 指向这里，测试仅清理本轮生成内容。未批准依赖升级、提交、推送、远端操作或真实曲库操作。
+
+- Ruling: 使用当前会话执行，沿用本计划和已批准报告目录，不创建技能默认工作目录、不派发子代理、不自动提交 — 遵守用户明确范围 — 本轮为实现者自查，不是独立审计。
+- 接口预检：BackupConfig 的地域类型由 config 校验后传给 CosBackupStore 和 collectHealth；COS 原实现已经透传地域，不需修改 backup-store.ts。费用查表必须和地域白名单一致；三个 service 与手工命令必须使用相同 Node 路径。
+- [x] 新增配置/费用测试并验证预期失败：3 文件 40 项中 35 通过、5 失败。失败为成都直接校验、成都文件加载和三项成都费用/阈值断言；没有用路径或工具错误冒充功能失败。SDK 地域透传原本支持，新增双地域回归在此轮通过。
+- [x] 最小适配：类型与校验允许上海/成都，模板默认成都；费用按地域采用上海 `0.00393333`、成都 `0.0033` 元/GB/日；三个 service Node 路径统一为 `/opt/255-phonograph/node24/bin/node`。未安装远端 Node，未改变现有服务保护或 TimeoutStopSec=90。
+- [x] 聚焦回归：`npm run test:server -- server/ops/config.test.ts server/ops/backup-store.test.ts server/ops/health.test.ts`，3 文件 40/40、退出码 0。
+- [x] 全量回归：`npm run test:run`，客户端 30 文件 163/163、服务端 34 文件 286/286、退出码 0；服务端比基线增加 16 项。Node.js 24.16.0、Vitest 4.1.11，未调整默认并发/超时。
+- [x] `npm run build`，客户端/服务端类型检查、Vite 构建、服务端编译均通过，退出码 0。未安装依赖或重跑 audit；2026-09-29 audit 全零仍为历史证据。
+- [x] 同步四份文档：记录采购事实来源、当前本地基线、26.04 运行未验状态、Node 安装路径和版本检查、磁盘 TMPDIR/恢复目标父目录要求、成都费用与后续批准关口。保留历史审批、失败和上海选型记录。
+
+费用依据：2026-09-30 只读复核[腾讯云 Lighthouse COS 定价](https://cloud.tencent.com/document/product/1207/88189)。成都 10 GB 合计存储 30 天约 0.99 元；现有服务器 45 元/月和域名 39 元/年参考基数下总估算 49.24 元/月。实际订单金额尚未核对；估算不包含公网恢复下载，不等同账单。
+
+后续仍待单独批准 Ubuntu 26.04 主机只读预检及具体环境写入。Node 24 安装目录、构建和测试目录、软件来源/版本、系统文件、账号、端口、测试密钥等需列确切范围。6.6、8.4、8.6、9.2–9.5、10.3–10.6 及 Task 11–12 的未完成状态保持；采购事实已更新，但不把采购/备案/备份组合任务整体勾选完成。Linux、真实 age/COS、强杀恢复、重启/重新部署、家庭音频和三天试运行继续未验收。
+
+- [x] 本地交付复核：变更集合与批准的 14 文件完全一致；`git diff --check` 通过；四文档 17 个相对链接目标存在。源码和模板自查覆盖地域校验、费用查表、COS 参数测试及统一 Node 路径，没有扩展业务功能。当前 Task 9.2 示例的停服超时同步为实际模板 90 秒，历史差异记录保留。
+- [x] 产物边界：报告/构建/工具缓存受既有忽略规则覆盖，package.json 和 package-lock.json 无差异，暂存区为空，HEAD 未变。获准 TEMP/TMP 根目录中仅留工具生成的 node-compile-cache；测试数据库和合成媒体由用例清理，未清理旧轮次目录。主仓库迁移包存在。
+- 本地适配阶段结束；本窗口自动压缩累计 0 次。按阶段切换规则在对话提供交接提示，不自动创建窗口。下一阶段先取得目标主机连接方式和可信主机指纹，单独批准远端只读预检，随后再按确切路径审批环境写入；本轮批准不延伸到这些动作。
+
+### 2026-09-30 测试部署准备（当前执行入口）
+
+#### 授权、基线与证据
+
+用户本次明确回复“批准更新四份文档”，仅修改本计划、部署规格、验收记录和运维手册。保留历史段落，更新当前摘要；不修改其余十个适配文件，不生成测试/构建日志或安装产物，不提交、推送、打包、上传或操作服务器。
+
+本次只读核对：工作树仍为 `E:\codex\hanser\.worktrees\pc-music-player`，分支 `codex/pc-music-player`，HEAD `3e20be0e6881941bc339dc569392bafaf25fe83a`，14 个文件修改、暂存区为空。已有日志记载客户端 163/163、服务端 286/286、聚焦 40/40，类型检查和构建通过；本次未重跑。远端推送和 main 未合并仍仅为交接事实，未重新查询远端。
+
+服务器预检及 Node/Caddy 安装已在上一阶段分别批准完成，原证据为用户在腾讯云终端执行后回传，本次通过交接文本接续。Node 24.21.0/npm 11.19.0 使用 `/opt/255-phonograph/node24/bin/`；Caddy 2.11.4 的两个服务保持 masked/inactive。应用未上传，Linux 全量工程和入口配置未验证。详见[验收记录](../../deployment/private-cloud-acceptance.md)及[运维手册第 12 节](../../deployment/private-cloud-runbook.md#12-2026-09-30-服务器准备交接与内部测试操作边界)。
+
+#### A. 审查与固定发布版本
+
+- [ ] 审核当前 14 个修改文件及直接依赖，确认成都/上海校验、费用取价、Node 服务路径、测试断言和文档一致；明确只有实现者自查，不能写为独立审查。
+- [ ] 列出确切暂存文件、提交说明和验证结果，单独申请 Git 提交批准；批准后只暂存指定文件并提交。推送需另行批准。
+- [ ] 读取提交后的 `git rev-parse HEAD`，记录真实 40 位 SHA 并检查发布范围是否仍有未提交差异。源码包与 `PHONOGRAPH_RELEASE_ID` 必须对应该提交，不能沿用上述适配前 HEAD。
+
+#### B. 源码包内容与上传
+
+候选白名单为 `src/`、`server/`、`shared/`、`public/`、`deploy/`，以及七个根文件：`package.json`、`package-lock.json`、`index.html`、`tsconfig.json`、`tsconfig.server.json`、`vite.config.ts`、`vitest.server.config.ts`。交接统计为 183 个 Git 管理文件、原始约 905486 字节；该数字是历史候选统计，必须按实际发布提交重新枚举。
+
+- [ ] 从获准提交枚举白名单，检查依赖引用与文件类型，排除秘密、数据库、真实媒体、Windows node_modules、构建目录、`.verification` 和迁移包。`public/`、`deploy/` 仍逐项审查，白名单目录名本身不构成内容安全证明。
+- [ ] 得到真实 SHA 后，列出本地归档及校验清单的确切绝对文件名、格式、内部路径、影响和验证方法，单独申请生成批准；本次不创建输出目录或归档。
+- [ ] 生成后核对包内文件清单、数量和 SHA-256，确认内容来自同一提交。避免把 Git 管理文件的工作区未提交版本混入包中。
+- [ ] 单独申请上传，列出该包及校验清单、实例身份和控制台实际落盘路径。腾讯云控制台若只能写入默认上传目录，先确认该目录并纳入批准范围，不擅自移动文件。上传后用户逐条执行校验命令，核对 SHA-256，再审批解包与运行环境。
+
+#### C. Linux 隔离验证路径提案（尚未批准创建）
+
+下表是下一轮环境审批的候选范围。执行前检查路径是否存在、是否含旧数据、祖先是否为符号链接，以及真实挂载和可用空间；遇到冲突先重新选定并审批，不覆盖或清理。
+
+| 确切候选路径 | 用途与预计写入 |
+| --- | --- |
+| `/var/tmp/255-phonograph-linux-test-20260930/` | 本轮隔离根目录，拟由 ubuntu 用户持有，不作为正式发布目录。 |
+| `/var/tmp/255-phonograph-linux-test-20260930/source/` | 解包源码；npm ci 生成 node_modules（含工具缓存）；构建生成 dist、server-dist。 |
+| `/var/tmp/255-phonograph-linux-test-20260930/npm-cache/` | npm 下载缓存及 npm 自身日志。 |
+| `/var/tmp/255-phonograph-linux-test-20260930/tmp/` | 设置为 TMPDIR，位于源码目录外；单元测试的数据库、媒体、归档和恢复夹具仅在此生成与清理。 |
+| `/var/tmp/255-phonograph-linux-test-20260930/logs/` | 拟保存 npm-ci.log、tests.log、build.log、internal-app.log；命令实现需保留真实退出码。 |
+| `/var/tmp/255-phonograph-linux-test-20260930/app-data/` | 单独批准后初始化的 SQLite、WAL/SHM、.initialized.json、media/ 和合成示范音频；不用于真实歌曲。 |
+
+源码、缓存、日志、TMPDIR 和 app-data 为同一隔离根下的不同目录；所有测试从 source 执行，因此数据和 TMPDIR 均在代码目录之外。实际上传落盘路径需在上传审批时确定，不假定上传界面支持任意目标。正式 `/srv/255-phonograph/`、`/var/lib/255-phonograph/`、`/etc/255-phonograph/` 和 systemd 单元不在此候选写入范围。
+
+#### D. 获准环境后的工程与内部应用验证
+
+以下是计划步骤，本次不执行。每次向用户只提供一条可复制命令，等待回传后再继续；不自动向浏览器终端输入。
+
+- [ ] 先用 `findmnt`、`df` 核对获准目录确实落在磁盘且有足够空间；确认 2 GiB swap 的实际状态。大文件测试不使用 `/tmp` 或 `/run` 的 tmpfs，不自动改 swap。
+- [ ] 在 source 目录设置 PATH 首项为 `/opt/255-phonograph/node24/bin`，设置 TMPDIR 为上表 tmp、npm_config_cache 为上表 npm-cache；分别核对 node/npm 版本、`process.execPath` 与 `require('node:os').tmpdir()`。
+- [ ] `npm ci --no-audit --no-fund`：按锁文件安装完整测试和构建依赖。环境审批须包含向 npm 注册表下载依赖、安装生命周期脚本及上述生成物；不升级锁文件，不把此步当作依赖安全审计。
+- [ ] `npm run test:run`：预期客户端 163 项、服务端 286 项全部通过；若发布提交改变测试数量，以该提交核对后的数量为准，记录失败与真实退出码。
+- [ ] `npm run build`：包含两套类型检查、Vite 前端构建及服务端编译，预期退出码 0。记录 Node 24.21.0 与内存/磁盘实际情况；失败时保留日志，不通过降低路径保护绕过。
+- [ ] 单独批准内部应用初始化和进程启动后，使用 `NODE_ENV=production`、`PHONOGRAPH_DEPLOYMENT=private-cloud`、`PHONOGRAPH_SITE_ORIGIN=https://255fm.cn`、真实 `PHONOGRAPH_RELEASE_ID`、上表 app-data 绝对路径和 `PHONOGRAPH_HOST=127.0.0.1`。先确认 3001 未占用；初始化命令会写数据库、标记与合成媒体，不能误当只读验证。
+- [ ] 使用获准的显式 Node 路径运行编译入口 `server-dist/server/index.js --initialize-data`；成功退出后普通启动不再带初始化参数。后台进程及日志的启动、停止范围在执行前列明；不安装 phonograph 服务。
+- [ ] 从服务器回环地址验证网页、Host 检查、API、合成媒体 GET/HEAD/Range、正常退出和重启数据保留，记录每项结果。涉及测试密码或写接口的夹具也先列入审批，不操作真实密码。Caddy 全程保持 masked，内部 HTTP 不能证明 HTTPS/Secure Cookie/私人入口工作正常。
+
+Linux 配置校验、应用 systemd、真实 age 与 COS、强杀补偿、服务器重启/重新部署、域名 HTTPS 与私人入口、家庭真实音频和三天试运行保留后续关口。安装、配置、服务启停及对应产物范围逐步明确后审批，不因文档完成自动执行。
+
+#### 本次文档检查
+
+只读比较写入前后 Git 管理文件的 SHA-256，检查差异仅为获准四份文档；检查相对链接、当前摘要与历史记录边界，运行 `git diff --check`。检查结果在本轮对话报告，不新建报告文件或重跑工程测试。

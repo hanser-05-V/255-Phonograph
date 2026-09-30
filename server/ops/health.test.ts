@@ -4,7 +4,7 @@ import {mkdtemp, mkdir, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 import type {BackupConfig, BackupIndex, BackupState} from './contracts.js';
-const config = {dataDir: 'test'} as BackupConfig;
+const config = {dataDir: 'test', cos: {region: 'ap-shanghai'}} as BackupConfig;
 const state: BackupState = {phase: 'complete', lastSuccessAt: '2026-09-28T00:00:00.000Z', lastErrorCode: null, applicationRecovered: true, applicationWasActive: true};
 const ports: HealthPorts = {
   now: () => new Date('2026-09-29T01:00:00.000Z'), async applicationOk() { return true; }, async readState() { return state; },
@@ -22,6 +22,31 @@ it('fails visibly for missing state, unavailable storage and application failure
     async readIndex() { throw new Error('secret'); }, async disk() { throw new Error('secret'); }});
   expect(health.warnings).toEqual(expect.arrayContaining(['APPLICATION_UNHEALTHY', 'STATE_UNAVAILABLE', 'INDEX_UNAVAILABLE', 'DISK_UNAVAILABLE']));
   expect(JSON.stringify(health)).not.toContain('secret');
+});
+it('uses Chengdu pricing for all retained and unconfirmed objects', async () => {
+  const sample = {...config, cos: {...config.cos, region: 'ap-chengdu'}} as BackupConfig;
+  const health = await collectHealth(sample, {...ports,
+    async readState() { return {...state, pendingReceipt: {id: 'pending', bytes: 2e9}} as BackupState; },
+    async readIndex() { return {format: 1, active: [{id: 'active', bytes: 5e9}], pendingDelete: [{id: 'old', bytes: 3e9}]} as BackupIndex; },
+  });
+  expect(health.backupStoredBytes).toBe(10e9);
+  expect(health.estimatedMonthlyCny).toBe(49.24);
+  expect(health.warnings).toEqual(expect.arrayContaining(['BUDGET_WATCH', 'RETENTION_RETRY', 'UNCONFIRMED_BACKUP']));
+  expect(health.warnings).not.toContain('BUDGET_EXCEEDED');
+});
+it.each([
+  ['ap-chengdu', 17e9, 49.93, 'BUDGET_WATCH'],
+  ['ap-shanghai', 17e9, 50.26, 'BUDGET_EXCEEDED'],
+  ['ap-chengdu', 18e9, 50.03, 'BUDGET_EXCEEDED'],
+  ['ap-shanghai', 18e9, 50.37, 'BUDGET_EXCEEDED'],
+] as const)('reports the budget threshold in %s at %s bytes', async (region, bytes, estimate, warning) => {
+  const sample = {...config, cos: {...config.cos, region}} as BackupConfig;
+  const health = await collectHealth(sample, {...ports,
+    async readIndex() { return {format: 1, active: [{bytes}], pendingDelete: []} as BackupIndex; },
+  });
+  expect(health.estimatedMonthlyCny).toBe(estimate);
+  expect(health.warnings).toContain(warning);
+  expect(health.warnings).not.toContain(warning === 'BUDGET_WATCH' ? 'BUDGET_EXCEEDED' : 'BUDGET_WATCH');
 });
 it('reports critical disk, budget overrun and pending deletions', async () => {
   const health = await collectHealth(config, {...ports, async disk() { return {blocks: 100, bavail: 10, bsize: 1024}; },

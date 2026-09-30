@@ -60,24 +60,29 @@ it('rejects foreign keys, duplicate IDs, bad hashes and oversized index lists', 
   expect(() => validateIndex({...index, active: [good, good]}, prefix)).toThrow();
   expect(() => validateIndex({...index, active: Array.from({length: 8}, () => receipt(2))}, prefix)).toThrow();
 });
-it('requires explicit index initialization and never treats forbidden as empty', async () => {
+it.each(['ap-shanghai', 'ap-chengdu'] as const)('requires explicit index initialization in %s and never treats forbidden as empty', async region => {
   let status = 404; let stored = '';
+  const requests: {Bucket: string; Region: string; Key: string}[] = [];
   const client = {
-    getObject(_p: unknown, cb: (err: unknown, data?: unknown) => void) { cb({statusCode: status, message: 'secret'}); },
-    putObject(p: {Body: string}, cb: (err: unknown, data?: unknown) => void) { stored = p.Body; cb(null, {}); },
+    getObject(p: {Bucket: string; Region: string; Key: string}, cb: (err: unknown, data?: unknown) => void) { requests.push(p); cb({statusCode: status, message: 'secret'}); },
+    putObject(p: {Bucket: string; Region: string; Key: string; Body: string}, cb: (err: unknown, data?: unknown) => void) { requests.push(p); stored = p.Body; cb(null, {}); },
   } as unknown as ObjectClient;
-  const store = new CosBackupStore({cos: {bucket: 'test-1234567890', region: 'ap-shanghai', prefix}} as BackupConfig, client);
+  const store = new CosBackupStore({cos: {bucket: 'test-1234567890', region, prefix}} as BackupConfig, client);
   await expect(store.readIndex()).rejects.toThrow('INDEX_MISSING');
   await store.initializeIndex(); expect(JSON.parse(stored)).toEqual({format: 1, active: [], pendingDelete: []});
   status = 403; await expect(store.initializeIndex()).rejects.toThrow('COS_REQUEST_FAILED');
+  expect(requests).toHaveLength(4);
+  for (const request of requests) expect(request).toMatchObject({Bucket: 'test-1234567890', Region: region, Key: `${prefix}index.json`});
 });
 
-it('streams exact private objects, verifies downloaded hashes and preserves existing targets', async () => {
+it.each(['ap-shanghai', 'ap-chengdu'] as const)('streams exact private objects in %s, verifies downloaded hashes and preserves existing targets', async region => {
   const root = await mkdtemp(path.join(tmpdir(), 'phonograph-cos-')); roots.push(root);
   const body = Buffer.from('synthetic ciphertext'); const objects = new Map<string, Buffer>();
   let failDownload = false;
+  const requests: {Bucket: string; Region: string; Key: string}[] = [];
   const client = {
-    putObject(p: {Key: string; Body: AsyncIterable<Uint8Array>; ACL: string; ContentLength: number}, cb: (err: unknown, data?: unknown) => void) {
+    putObject(p: {Bucket: string; Region: string; Key: string; Body: AsyncIterable<Uint8Array>; ACL: string; ContentLength: number}, cb: (err: unknown, data?: unknown) => void) {
+      requests.push(p);
       void (async () => {
         const chunks: Buffer[] = []; for await (const chunk of p.Body) chunks.push(Buffer.from(chunk));
         const bytes = Buffer.concat(chunks);
@@ -85,16 +90,18 @@ it('streams exact private objects, verifies downloaded hashes and preserves exis
         objects.set(p.Key, bytes); cb(null, {});
       })().catch(cb);
     },
-    headObject(p: {Key: string}, cb: (err: unknown, data?: unknown) => void) {
+    headObject(p: {Bucket: string; Region: string; Key: string}, cb: (err: unknown, data?: unknown) => void) {
+      requests.push(p);
       cb(null, {headers: {'content-length': String(objects.get(p.Key)?.length ?? 0)}, ETag: 'not-a-sha256'});
     },
-    getObject(p: {Key: string; Output: Writable}, cb: (err: unknown, data?: unknown) => void) {
+    getObject(p: {Bucket: string; Region: string; Key: string; Output: Writable}, cb: (err: unknown, data?: unknown) => void) {
+      requests.push(p);
       if (failDownload) { p.Output.destroy(new Error('partial')); cb({statusCode: 500}); return; }
       p.Output.end(objects.get(p.Key)); cb(null, {});
     },
-    deleteObject(p: {Key: string}, cb: (err: unknown, data?: unknown) => void) { objects.delete(p.Key); cb(null, {}); },
+    deleteObject(p: {Bucket: string; Region: string; Key: string}, cb: (err: unknown, data?: unknown) => void) { requests.push(p); objects.delete(p.Key); cb(null, {}); },
   } as unknown as ObjectClient;
-  const store = new CosBackupStore({cos: {bucket: 'test-1234567890', region: 'ap-shanghai', prefix}} as BackupConfig, client);
+  const store = new CosBackupStore({cos: {bucket: 'test-1234567890', region, prefix}} as BackupConfig, client);
   const r = {...receipt(1), bytes: body.length, sha256: createHash('sha256').update(body).digest('hex')};
   const source = path.join(root, 'source.age'); await writeFile(source, body);
   await store.upload(source, r); expect(await store.head(r)).toEqual({bytes: body.length});
@@ -105,4 +112,6 @@ it('streams exact private objects, verifies downloaded hashes and preserves exis
   failDownload = true; await expect(store.download(r, path.join(root, 'partial.age'))).rejects.toThrow();
   await expect(store.delete({...r, objectKey: 'foreign/key'})).rejects.toThrow('INVALID_RECEIPT');
   expect(objects.has(r.objectKey)).toBe(true); await store.delete(r); expect(objects.has(r.objectKey)).toBe(false);
+  expect(requests.length).toBeGreaterThanOrEqual(6);
+  for (const request of requests) expect(request).toMatchObject({Bucket: 'test-1234567890', Region: region, Key: r.objectKey});
 });
