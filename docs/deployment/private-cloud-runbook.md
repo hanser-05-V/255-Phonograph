@@ -1,8 +1,8 @@
 # 255留音机个人云端测试运维手册
 
-当前状态更新于 2026-10-16：四川个人备案已提交，最近截图为腾讯云审核中；正式 phonograph.service 已 active/running/enabled，本机健康检查通过；两个 Caddy 服务仍 masked/inactive。age 安装验证完成，隔离演练停在 test-key.txt 已生成、wrong-key.txt 尚无执行结果。以[部署路线与接续提示词](private-cloud-next-steps.md)、验收记录最新章节及本手册第 13 节为当前入口；第 10–12 节保留历史，不能依其旧状态重新安装或初始化。本轮已批准四份文档更新和开发分支提交/推送，后续服务器操作仍按具体授权执行。
+当前状态更新于 2026-10-19：age 合成数据正向解密、错误密钥和截断密文拒绝测试通过；正式数据路径及指定目录权限已核对；标准 COS 桶 255-backups-1378821599 已创建，成都、私有读写、单 AZ，文件列表为空。下一步为专用权限和隔离对象联调，生产备份/恢复仍未执行。以[部署路线与接续提示词](private-cloud-next-steps.md)、验收记录最新章节及本手册第 14 节为当前入口；第 10–13 节为历史，不能依旧状态重复安装或初始化。六文件本地修改及静态验证完成后，用户另行批准提交/推送当前开发分支；云端变更仍需单独授权。
 
-用户已明确网站面向 hanser 粉丝免费提供直播语音切片与翻唱音频。本文原有全站私人认证等操作材料属于旧私用设计，尚未完成公开访问方案调整；不能直接移除认证并启用入口。本轮没有修改业务代码、部署模板或设计规格。
+用户已明确网站面向 hanser 粉丝免费提供直播语音切片与翻唱音频。本文原有全站私人认证等操作材料属于旧私用设计，尚未完成公开访问方案调整；不能直接移除认证并启用入口。本轮仅更新备份接入模板与交接文档，没有修改业务代码、Caddy 或设计规格。
 
 设计依据：[规格](../superpowers/specs/2026-09-28-private-cloud-test-deployment-design.md)、[实施计划](../superpowers/plans/2026-09-28-private-cloud-test-deployment.md)。结果以[验收记录](private-cloud-acceptance.md)为准。
 
@@ -10,27 +10,27 @@
 
 - 腾讯云成都二区实例 `lhins-856nphe0`，名称 `255-phonograph`，公网 IP `1.14.111.74`；原采购记录为锐驰型 2 核 2 GB、40 GB SSD、200 Mbps 峰值、无限流量，到期原值 `2026-12-31 11:53:38`、自动续费关闭，当前账单及到期状态未重查。2026-10-16 用户终端确认系统为 Ubuntu 26.04 LTS/x86-64。用途已改为面向粉丝，容量与访问方案需据此复核。
 - 域名 `255fm.cn`；四川个人首次备案已提交，最近截图显示腾讯云审核中，服务内容为“其他、网络音乐”。尚无备案通过、个人主体内容审核结论或最终网站名称的回传证据。域名、主体材料和费用以官方渠道为准；备案通过及入口方案确认前保持当前不开放域名网站服务的阶段。
-- 同地域私有 Lighthouse COS，仅放加密备份，不承担播放器媒体分发。不假设具有普通 COS 的存储桶列表、生命周期等接口。
-- 当前健康估算保留服务器 45 元/月、域名 39 元/年的参考基数，尚非此次成交价。成都存储参考 0.0033 元/GB/日；全部备份日均合计 10 GB、30 天约 0.99 元，合计参考 49.24 元/月，未含公网恢复下载。七份各 10 GB 是 70 GB，不能按 10 GB 算。公网恢复下载参考 0.5 元/GB；实际费用以最终产品计费和账单为准。200 Mbps 峰值不能替代家庭访问实测。
+- 实际为同地域标准 COS 桶 `255-backups-1378821599`，成都 `ap-chengdu`，私有读写、单 AZ；已创建但尚无对象。原 Lighthouse 选型已被实际资源替代，计划只放加密备份与不含秘密的索引，不承担播放器媒体分发。
+- `server/ops/health.ts` 仍使用 Lighthouse 历史费率、服务器 45 元/月和域名 39 元/年的参考基数。这些不是当前成交价或标准 COS 完整计费模型，原 49.24 元/月示例不能作为当前费用结论。标准 COS 还存在请求等计费项；优惠额度适用性尚未核实，恢复下载和所有保留副本均需计入。费用模型适配及当前价格/账单核对须在启用运维定时器前另行完成，本轮不修改健康代码。200 Mbps 峰值不能替代家庭访问实测。
 - 采购前记录准确服务器 ID、IP、主机指纹、域名、桶名、独占前缀、续费周期和账单告警设置；不得用示例值填充生产配置。实名材料在服务商官方页面处理。
 
-官方参考（采购前重新核对）：[服务器价格](https://cloud.tencent.cn/document/product/1207/73452)、[域名价格](https://buy.cloud.tencent.com/domain/price?intl=0&source=newDNSPod&type=overview)、[备份存储计费](https://cloud.tencent.com/document/product/1207/88189)、[备案资源要求](https://cloud.tencent.com/document/product/243/18908/)、[Lighthouse COS 能力](https://cloud.tencent.cn/document/product/1207/108904)。
+官方参考（采购前重新核对）：[服务器价格](https://cloud.tencent.cn/document/product/1207/73452)、[域名价格](https://buy.cloud.tencent.com/domain/price?intl=0&source=newDNSPod&type=overview)、[备案资源要求](https://cloud.tencent.com/document/product/243/18908/)、[标准 COS 与轻量对象存储的计费及能力差异](https://cloud.tencent.com/document/product/1207/108904)。原轻量价格仅作历史记录，不套用到新桶。
 
 ## 2. 固定版本与本地证据
 
-本地已有验证环境为 Node.js 24.16.0；官方 `cos-nodejs-sdk-v5` 3.0.0、`tar` 7.5.22 均精确锁定。服务器历史交接版本为 Node 24.21.0、npm 11.19.0、Caddy 2.11.4、systemd 259；2026-10-16 再次核对 Node 24.21.0，并安装 age 包 1.2.1-1build1，age 与 age-keygen 均输出 1.2.1。Fail2ban 仅有此前未安装的记录，本轮未检查。2026-09-30 已在服务器通过客户端 163/163、服务端 294/294、类型检查和构建；真实 age 加解密、Caddy 入口、systemd 故障补偿和 Fail2ban 匹配仍不能由工程测试替代。
+本地已有验证环境为 Node.js 24.16.0；官方 `cos-nodejs-sdk-v5` 3.0.0、`tar` 7.5.22 均精确锁定。服务器历史交接版本为 Node 24.21.0、npm 11.19.0、Caddy 2.11.4、systemd 259；2026-10-16 再次核对 Node 24.21.0，并安装 age 包 1.2.1-1build1，age 与 age-keygen 均输出 1.2.1。2026-10-19 已取得真实 age 合成文本测试证据。Fail2ban 本轮未检查。2026-09-30 工程检查为客户端 163/163、服务端 294/294、类型检查和构建通过；完整恢复、Caddy 入口、systemd 故障补偿和 Fail2ban 匹配仍待验收。
 
 2026-09-29 已获批完成开发依赖安全更新：Vite 固定 7.3.6，Vitest 及 @vitest/mocker 固定 4.1.11。此前残留的 GHSA-82fw-gwwq-j7x9 已不再出现在当日 npm audit 报告；当日所有级别均为 0、退出码 0，本次没有重跑 audit。当日客户端 163/163、服务端 270/270、类型检查和生产构建通过；2026-09-30 成都适配后服务端为 286/286，客户端仍为 163/163，类型与构建通过。失败和复验历史见[验收记录](private-cloud-acceptance.md)。升级报告使用忽略目录 `.verification/private-cloud/vitest4-*.log` 与 `vitest4-audit.json`，成都适配报告在 `.verification/private-cloud/chengdu-ubuntu26/`，均不提交。
 
 本地服务端验证须将 TEMP/TMP 指向已批准的仓库外隔离目录；2026-09-30 适配使用 `C:\Users\Administrator\AppData\Local\Temp\255-phonograph-chengdu-ubuntu26-20260930\`。此前 Vitest 4 升级目录保留为历史产物，不复用或清理。初始化及运维路径校验会拒绝代码目录内的数据路径，不能为了测试通过关闭这项保护。该本地目录不作为 Linux 部署数据路径。不启用公网 Vite 开发服务器或 Vitest UI；运行服务使用生产构建和 Fastify。
 
-应用发布版本必须对应实际获准提交的 40 位 SHA。历史 Linux 验证源码为 `ad23f3644498dd542357092c1aaca018e5c971d4`；正式进程 cwd 使用该 SHA 命名，本轮未重新校验其中发布文件哈希。本次文档同步前本地与远端开发分支为 `0f31a343dea50a64c5b63aff43af1dedde6887ed`，新文档提交不改变服务器版本。后续代码发布仍需对应授权及验证。
+应用发布版本必须对应实际获准提交的 40 位 SHA。历史 Linux 验证源码为 `ad23f3644498dd542357092c1aaca018e5c971d4`；正式进程 cwd 和 current 指向该 SHA 命名的目录，本轮未重新校验发布文件哈希。本轮编辑前本地开发分支 HEAD 为 `871fdd5a8b31d7664b0b2f7ba27ca9db62f8c16a`；仓库模板修改不改变服务器版本，安装配置前重新核对当前发布 SHA。
 
-Ubuntu 26.04 主机预检、Node SQLite 基础检查、Linux 工程及本机应用验证已有用户终端证据，完整上线验收仍未完成。服务模板和本手册统一使用 `/opt/255-phonograph/node24/bin/node`；当前进程实际解释器为 `/opt/255-phonograph/node-v24.21.0-linux-x64/bin/node`。构建时核实 PATH 首项、node 版本、process.execPath 与 npm 所用解释器。phonograph.service 已实际运行且 enabled；切勿按旧记录重复创建服务或初始化数据。正式布局、权限及配置仍需只读核对。
+Ubuntu 26.04 主机预检、Node SQLite 基础检查、Linux 工程及本机应用验证已有用户终端证据，完整上线验收仍未完成。服务模板和本手册统一使用 `/opt/255-phonograph/node24/bin/node`；当前进程实际解释器为 `/opt/255-phonograph/node-v24.21.0-linux-x64/bin/node`。构建时核实 PATH 首项、node 版本、process.execPath 与 npm 所用解释器。phonograph.service 已运行；指定布局/权限的新证据见第 14 节，未读真实曲库或完整环境文件。切勿重复创建服务或初始化数据。
 
 ## 3. 帐号、文件和网络边界
 
-以下为原设计的目录与权限约定，不是所有路径均已核验的现状表。当前服务器已有正式应用服务；执行前核对实际布局，禁止将已有数据当空目录重复初始化。已有其他业务时必须重新评估。
+以下为目录与权限约定，已实测的子集见第 14 节；未检查的文件不能由父目录权限推断。当前已有正式应用服务，执行前复核必要状态，禁止将已有数据当空目录重复初始化。
 
 | 目录或文件 | 所有者及访问 | 目的 |
 | --- | --- | --- |
@@ -79,11 +79,29 @@ Caddy 先认证再返回维护 503，移除上游 Authorization，重写真实�
 
 ## 6. 备份密钥和对象权限
 
-在所有者控制的设备上创建 age 密钥；私钥保管在服务器之外并验证有可用副本。服务器只放 age 公钥 recipients 文件。不得把私钥或含私钥的文件复制进项目。独立恢复时经单独批准使用私钥文件路径，不在参数中放私钥内容。
+当前使用公司电脑；生产 age 密钥留待家中受控设备创建，私钥在服务器之外保管并验证副本。服务器只放公钥 recipients 文件；已有两把服务器测试密钥只用于合成演练，不用于生产。私钥不进项目、聊天或命令行参数。独立恢复时单独批准私钥使用位置与方式。
 
-[备份配置模板](../../deploy/backup-config.example.json)默认地域为 `ap-chengdu`，填入单独批准创建的实际桶、`phonograph-backups/<独占 UUID>/`、实际发布 SHA 和域名。成都二区不是地域参数，不填 `ap-chengdu-2`。代码保留 `ap-shanghai` 兼容性，拒绝其他地域。桶和前缀尚未创建，空示例值故意不能通过验证。运维环境 `/etc/255-phonograph/backup.env` 仅包含 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY`，root:root 0600；曲库备份不包含它们。为指定前缀授予最小对象 put/head/get/delete 权限；手工恢复可使用独立只读凭据。禁止公共读写、网页托管和浏览器 CORS。
+[备份配置模板](../../deploy/backup-config.example.json)已填入桶 `255-backups-1378821599`、地域 `ap-chengdu`、站点 Origin `https://255fm.cn` 及最近运行版本 `ad23f3644498dd542357092c1aaca018e5c971d4`。安装前复核 releaseId 与 current；不要用仅修改文档的提交 SHA 代替服务器实际运行版本。成都二区不是地域参数，不填 `ap-chengdu-2`。生产配置、正式 recipients 与访问凭据尚未安装，模板中的非空值不代表可以执行备份。
 
-先单独批准隔离对象 put/head/get/delete 联调，核实 Lighthouse COS 的实际 API 和权限。再批准生产前缀空索引初始化；已有索引时命令拒绝，例行备份遇到 404 不自动创建空索引。
+独占对象前缀固定为 `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/`。这是选定的逻辑路径，未写入对象，不必上传空文件夹标记。更换前缀必须同时审查配置、策略与旧索引恢复路径，不能让例行备份自动创建新索引。
+
+新增 [CAM 用户策略模板](../../deploy/cos-backup-policy.example.json)用于专用程序访问子用户，建议名称 `phonograph-backup`，策略名 `phonograph-backup-prefix`，均为待审批名称而非已创建资源。先只读检查有无同名资源；有则审查后复用，不覆盖已有策略。此模板不含 principal，不能直接作为存储桶策略提交。
+
+| 操作 | 限定资源 | 用途与条件 |
+| --- | --- | --- |
+| GetObject、HeadObject | 该前缀的 `index.json` 和 `*.tar.age` | 读取索引、检查密文长度、下载已知回执对应密文 |
+| PutObject | 同上 | 必须携带 `x-cos-acl: private`；五项 x-cos-grant-* 授权头必须缺省或为空 |
+| DeleteObject | 仅该前缀的 `*.tar.age` | 七份轮换所需的旧密文删除；不授予索引删除 |
+
+资源中的 `uid/1378821599` 使用桶 APPID，不是主账号 UIN。没有列桶、桶管理、改 ACL、删除索引、multipart 或其他前缀权限。索引仍可由 PutObject 覆盖以更新成功集，这不是不可变备份；`.tar.age` 通配符限定键名，不能验证内容是否加密，实际上传必须通过 age 加密及校验流程。当前 SDK 仅用四类对象接口，HTTPS 由客户端设置；不需要为控制台显示文件列表额外授予 GetBucket。
+
+策略采用受限 allow，须配合无其他授权的专用子用户；用户组、其他 CAM 策略或资源策略可能另外赋权，因此绑定前核对全部有效权限。不要附加全量 COS 策略或允许控制台登录。凭据生成及落盘另行审批，`/etc/255-phonograph/backup.env` 仅含 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY`，root:root 0600；不向聊天回传值、不放命令行参数、不复制完整应用环境。手工恢复可另准备只读身份。
+
+官方依据：[策略语言与资源路径](https://cloud.tencent.com/document/product/436/18023)、[条件键](https://cloud.tencent.com/document/product/436/71306)、[private ACL 与禁止附加授权头示例](https://cloud.tencent.com/document/product/436/71307)。本地静态检查不能替代 CAM 平台校验和实际权限测试。
+
+先单独批准隔离前缀、准确测试对象键、合成密文来源、下载路径、访问凭据及删除范围。隔离策略的资源路径应由批准的隔离前缀生成，不能为了联调把生产策略改成整桶权限。验证 put/head/get/delete、下载 SHA-256、前缀外操作拒绝；每次拒绝核实实际错误码，不能把网络错误当权限通过。生产 index.json 不参与这一步；不通过备份命令联调，避免停正式应用。
+
+随后才批准正式公钥安装、生产配置和空索引初始化。已有索引时命令拒绝，例行备份遇到 404 不自动重建。以下是后续生产初始化材料，当前未授权执行：
 
 ```sh
 sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backup.lock \
@@ -105,7 +123,7 @@ sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backu
 
 维护期间不要同时人工停止/切换应用。需要人工介入时先明确结束备份并验证补偿结果；不要删除状态文件来强行解锁。75 表示锁已被其他任务持有，不代表产生新备份。
 
-健康单元每 15 分钟把 JSON 写入受限 `health.json` 并记入 journal。磁盘 80% 警告、90% 拒绝新上传；备份超 24 小时、服务恢复异常、索引不可读、预算 45/50 元阈值均有警告码。估算包含 active、pendingDelete 和已知待确认包，不等同实际账单。没有配置外部通知渠道，不会主动发邮件或消息。BUDGET_WATCH 是费用接近预算的提示，当前固定成本可能使它持续存在。
+健康单元设计为每 15 分钟把 JSON 写入受限 `health.json` 并记入 journal，目前未启用。磁盘 80% 警告、90% 拒绝新上传；备份超 24 小时、服务恢复异常、索引不可读均有警告。容量统计包含 active、pendingDelete 和已知待确认包；预算 45/50 元警告仍基于旧 Lighthouse 模型，不能证明当前标准 COS 费用受控。启用定时器前另行修正并验收费用模型；不因此静默停止备份或缩短七份保留期。没有配置外部通知渠道。
 
 ## 8. 隔离恢复与版本回滚
 
@@ -131,7 +149,7 @@ sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backu
 
 真实音频文件尚未提供或批准。MP3/M4A、封面/LRC 上传、取消/断网、播放、前后拖动、恢复进度、自动下一首及家庭网络体验必须补验；不得用合成接口测试标为通过。连续三天试运行含一次服务器重启、重新部署、两次定时备份，以及远端下载解密恢复演练后，才能评价个人测试可用性；不宣称正式公开上线。
 
-## 10. 2026-09-29 采购与部署准备补充（当前关口）
+## 10. 2026-09-29 采购与部署准备补充（历史关口）
 
 本节补充第 1–3、9 节的当前事实。用户已批准更新本手册、验收记录和实施计划三份文档；授权仅限材料准备，不包含采购、资源创建、安装软件、Linux 测试产物、部署、真实数据操作、提交或推送。未完成的执行输入继续标为待填。
 
@@ -199,7 +217,7 @@ sudo /usr/bin/flock --nonblock --conflict-exit-code 75 /run/255-phonograph-backu
 
 本表是待填写的审批材料，不是远端写入许可。软件安装涉及的包管理器系统文件、服务账号、所有测试/构建生成物和清理动作也须列入对应环境审批。真实上传、迁移、恢复切换、提交和推送仍分别批准。
 
-## 11. 2026-09-30 成都与 Ubuntu 26.04 当前执行要求
+## 11. 2026-09-30 成都与 Ubuntu 26.04 执行要求（历史）
 
 ### 11.1 事实、授权与保留项
 
@@ -282,7 +300,7 @@ Caddy 账号 uid 999/gid 983、附加组 www-data，home `/var/lib/caddy`，shel
 
 本次授权仅覆盖四份文档，不生成上述候选目录、归档或运行数据。已有安装准备目录、主仓库迁移包及原验证产物保留；清理也必须先列范围审批。
 
-## 13. 2026-10-16 当前运行状态与接续边界
+## 13. 2026-10-16 运行状态与接续边界（历史）
 
 ### 13.1 正式应用已经存在
 
@@ -296,7 +314,7 @@ Caddy 账号 uid 999/gid 983、附加组 www-data，home `/var/lib/caddy`，shel
 
 age 包 1.2.1-1build1 已安装，二进制版本与权限已验证。安装后应用仍为同一 PID、NRestarts=0，Caddy 保持屏蔽。仅完成工具安装验证，不是完整备份验收。
 
-隔离根 /var/tmp/255-phonograph-age-verify-20261016/ 已以 mkdir -m 700 创建，test-key.txt 已生成。wrong-key.txt 命令已给出但没有执行结果；其余文件及测试尚待执行。完整批准文件清单、权限目标和下一条命令见[路线第三节](private-cloud-next-steps.md#三当前断点age-隔离演练)。换电脑先检查现有文件，避免重建密钥；私钥内容不得进入聊天或 Git。现有同范围授权继续有效，新增文件或清理要另行批准。
+当时隔离根 /var/tmp/255-phonograph-age-verify-20261016/ 已创建，test-key.txt 已生成，其余测试待执行。2026-10-19 已完成这组测试，最新文件状态见[路线第三节](private-cloud-next-steps.md#三age-隔离演练已完成)。本段保留历史，不再提供重建或重复执行指令。
 
 后续使用合成文本验证真实加解密和哈希一致，再检查错误私钥及截断密文的真实拒绝原因/退出码，保存不含秘密的 verify.log。生产备份私钥在所有者设备保管；当前服务器测试密钥只用于本次隔离演练。尚无真实 COS 上传、下载、解密、恢复和定时备份验收。
 
@@ -305,3 +323,20 @@ age 包 1.2.1-1build1 已安装，二进制版本与权限已验证。安装后�
 最近备案截图为四川个人首次备案“腾讯云审核中”，不是备案通过；公安联网备案授权完成也不是办结。用户已明确粉丝向免费音频用途，填写“其他、网络音乐”，个人备案适用性与内容授权仍按实际审核/授权结果处理。旧全站私人认证设计需要重新评估；本轮不修改 Caddy 配置或开放入口。
 
 用户已批准四份文档及开发分支提交/推送供家中拉取；Git 同步不搬迁云端服务器或私钥。家中从[部署路线第六节](private-cloud-next-steps.md#六家中电脑同步)同步仓库，再用第七节提示词继续。按用户要求手动操作服务器，一次一条命令，等待实际输出；不自动派发子代理，不读取真实曲库、不重置密码、不清理旧日志，不重跑已完成的安装或初始化。
+
+## 14. 2026-10-19 标准 COS 接入准备（当前）
+
+### 14.1 已完成的检查
+
+- age 合成明文/恢复文本各 59 字节，cmp 相同，SHA-256 均为 `24f21c141fff7ffd13499926fdcc49d1380351bb5fed8d3fad3133c373119360`。正确解密通过；错误密钥和截断密文均退出 1，并返回对应原因，输出文件均 0 字节。目录 0700、十个文件 0600、ubuntu:ubuntu，verify.log 已写入并回传。保留全部测试产物。
+- systemctl 指向 `/etc/systemd/system/phonograph.service` 和 `/etc/255-phonograph/phonograph.env`，WorkingDirectory 为 current，User/Group 为 phonograph，无 drop-in，StateDirectory 为空。只读取 PHONOGRAPH_DATA_DIR 一项，确认 `/var/lib/255-phonograph`，并非由 StateDirectory 空值推断没有数据目录。
+- current 是 root 所有的预期发布链接；发布路径祖先 0755 root:root。数据目录 0700 phonograph:phonograph；配置目录、备份目录、运维状态目录均 0700 root:root；phonograph.env 为 0600 root:root。namei 核对了这些路径及祖先，未检查库内文件或完整环境。
+- `/etc/255-phonograph/backup.json`、`backup.env`、`age-recipients.txt` 均不存在。仓库模板更新不改变这一服务器观察。
+- 标准 COS 桶创建于 2026-10-19 12:20:14；成都、私有读写、单 AZ，文件列表为空。版本控制、静态网站、全球加速未开启；复制、生命周期、日志存储、CORS 未配置；数据万象未开通。ACL 只见所有者，桶策略为空，关联 CAM 子账号表无结果；未审计账号全部角色/用户组权限。
+- 服务端加密只有创建时选择“不加密”的截图，创建后没有重新核对这一项。端点为 `https://255-backups-1378821599.cos.ap-chengdu.myqcloud.com`。CDN 和媒体分发不属于本阶段。
+
+### 14.2 尚待实施与授权
+
+本轮六文件为本地接入材料：备份配置、CAM 策略和四份交接文档。实际策略创建/关联、访问密钥、服务器文件落盘、测试对象写删、生产空索引、停机备份、恢复与定时单元均尚未执行，须逐项列出准确资源及影响后批准。用户随后已批准六文件提交及推送到 origin/codex/pc-music-player，结果以 Git 输出和远端 SHA 为准；该批准不包含云端部署。
+
+先从 CAM 专用子用户的只读检查继续；没有生产公钥时可以准备权限及合成联调方案，不在公司电脑生成生产私钥。按第 6 节完成对象验证，再安排完整恢复和故障测试；按第 1 节解决费用模型差异。保持原服务状态和历史证据，不开放网站入口。详细交接和家庭同步步骤以[部署路线](private-cloud-next-steps.md)为准。

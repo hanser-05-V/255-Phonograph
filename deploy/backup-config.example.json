@@ -5,12 +5,12 @@
   "maintenanceFile": "/run/255-phonograph/maintenance",
   "applicationUnit": "phonograph.service",
   "applicationOrigin": "http://127.0.0.1:3001",
-  "siteOrigin": "https://phonograph.invalid",
-  "releaseId": "",
+  "siteOrigin": "https://255fm.cn",
+  "releaseId": "ad23f3644498dd542357092c1aaca018e5c971d4",
   "ageRecipientsFile": "/etc/255-phonograph/age-recipients.txt",
   "cos": {
-    "bucket": "",
+    "bucket": "255-backups-1378821599",
     "region": "ap-chengdu",
-    "prefix": ""
+    "prefix": "phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/"
   }
 }

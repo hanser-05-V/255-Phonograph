@@ -1,0 +1,38 @@
+{
+  "version": "2.0",
+  "statement": [
+    {
+      "effect": "allow",
+      "action": ["name/cos:GetObject", "name/cos:HeadObject"],
+      "resource": [
+        "qcs::cos:ap-chengdu:uid/1378821599:255-backups-1378821599/phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/index.json",
+        "qcs::cos:ap-chengdu:uid/1378821599:255-backups-1378821599/phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/*.tar.age"
+      ]
+    },
+    {
+      "effect": "allow",
+      "action": ["name/cos:PutObject"],
+      "resource": [
+        "qcs::cos:ap-chengdu:uid/1378821599:255-backups-1378821599/phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/index.json",
+        "qcs::cos:ap-chengdu:uid/1378821599:255-backups-1378821599/phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/*.tar.age"
+      ],
+      "condition": {
+        "string_equal": {"cos:x-cos-acl": "private"},
+        "string_equal_if_exist": {
+          "cos:x-cos-grant-read": "",
+          "cos:x-cos-grant-read-acp": "",
+          "cos:x-cos-grant-write": "",
+          "cos:x-cos-grant-write-acp": "",
+          "cos:x-cos-grant-full-control": ""
+        }
+      }
+    },
+    {
+      "effect": "allow",
+      "action": ["name/cos:DeleteObject"],
+      "resource": [
+        "qcs::cos:ap-chengdu:uid/1378821599:255-backups-1378821599/phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/*.tar.age"
+      ]
+    }
+  ]
+}
