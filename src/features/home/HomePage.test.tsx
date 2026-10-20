@@ -109,7 +109,7 @@ describe('HomePage', () => {
     expect(screen.getByRole('navigation', {name: '主导航'})).toBeInTheDocument();
     expect(screen.getByRole('link', {name: '首页'})).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', {name: '音乐馆'})).toHaveAttribute('href', '/music');
-    expect(screen.getByRole('link', {name: '故事会'})).toHaveAttribute('href', '#stories');
+    expect(screen.getByRole('link', {name: '晚安电台'})).toHaveAttribute('href', '/goodnight-radio');
     expect(screen.getByRole('searchbox', {name: '按歌名搜索'})).toHaveAttribute(
       'placeholder',
       '按歌名搜索',
@@ -120,7 +120,8 @@ describe('HomePage', () => {
     expect(screen.getByText('功能筹备中')).toBeInTheDocument();
     expect(screen.getByText('直播翻唱精选')).toBeInTheDocument();
     expect(screen.getByText('最近加入')).toBeInTheDocument();
-    expect(screen.getByText('故事会精选')).toBeInTheDocument();
+    expect(screen.getByRole('link', {name: '进入晚安电台'})).toHaveAttribute('href', '/goodnight-radio');
+    expect(screen.getByRole('heading', {level: 1})).toHaveTextContent('把今天');
     expect(screen.queryByText('安静时刻')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', {name: /故事会精选|最近更新|时间轴/})).not.toBeInTheDocument();
   });

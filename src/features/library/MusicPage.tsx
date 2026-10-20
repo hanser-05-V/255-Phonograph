@@ -1,5 +1,9 @@
 import {Link, useSearchParams} from 'react-router-dom';
-import {useState} from 'react';
+import {useRef} from 'react';
+import {HomeHeader} from '../home/HomeHeader';
+import {HanserArtwork} from '../../components/HanserArtwork';
+import {PlayIcon, PauseIcon} from '../player/Icons';
+import {formatTime} from '../player/player-utils';
 import {MediaImage} from '../../components/MediaImage';
 import {usePlayer} from '../player/usePlayer';
 import {useLibrary} from './LibraryProvider';
@@ -23,8 +27,14 @@ export function MusicPage() {
   const {library} = useLibrary();
   const player = usePlayer();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [categoryId, setCategoryId] = useState('');
-  const [tagId, setTagId] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const categoryId = searchParams.get('category') ?? '';
+  const tagId = searchParams.get('tag') ?? '';
+  const setFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value); else next.delete(key);
+    setSearchParams(next, {replace: true});
+  };
   const query = searchParams.get('q') ?? '';
   const songs = library?.songs ?? [];
   const categories = library?.categories ?? [];
@@ -39,21 +49,21 @@ export function MusicPage() {
   const resultIds = results.map(({id}) => id);
 
   const clearFilters = () => {
-    setCategoryId('');
-    setTagId('');
-    setSearchParams(updateTitleQuery(searchParams, ''), {replace: true});
+    const next = updateTitleQuery(searchParams, '');
+    next.delete('category'); next.delete('tag');
+    setSearchParams(next, {replace: true});
+    searchInput.current?.focus();
   };
 
   return (
     <main aria-labelledby="music-page-title" className="music-page page-with-mini-player">
+      <HomeHeader showSearch={false} />
       <header className="music-page__header">
-        <Link className="music-page__brand" to="/">255留音机</Link>
-        <div>
-          <p>全部音乐</p>
-          <h1 id="music-page-title">音乐馆</h1>
-          <p>从歌名、分类和标签里，找到此刻想听的声音。</p>
+        <div><Link className="back-home" to="/">返回首页</Link>
+          <h1 id="music-page-title" tabIndex={-1}>音乐馆</h1>
+          <p>把喜欢的声音，一首首找回来。</p>
         </div>
-        <Link className="music-page__home-link" to="/">返回首页</Link>
+        <figure><HanserArtwork kind="hug" label="hanser 抱着毛怪的 Q 版形象" /><figcaption>hanser 的声音收藏</figcaption></figure>
       </header>
 
       <section aria-label="筛选歌曲" className="music-page__filters">
@@ -67,6 +77,7 @@ export function MusicPage() {
             )}
             placeholder="输入歌名"
             type="search"
+            ref={searchInput}
             value={query}
           />
         </label>
@@ -74,7 +85,7 @@ export function MusicPage() {
           <span>分类</span>
           <select
             aria-label="分类"
-            onChange={(event) => setCategoryId(event.target.value)}
+            onChange={(event) => setFilter('category', event.target.value)}
             value={selectedCategoryId}
           >
             <option value="">全部分类</option>
@@ -87,7 +98,7 @@ export function MusicPage() {
           <span>标签</span>
           <select
             aria-label="标签"
-            onChange={(event) => setTagId(event.target.value)}
+            onChange={(event) => setFilter('tag', event.target.value)}
             value={selectedTagId}
           >
             <option value="">全部标签</option>
@@ -101,13 +112,13 @@ export function MusicPage() {
 
       <section aria-labelledby="music-results-title" className="music-page__results">
         <header>
-          <h2 id="music-results-title">全部歌曲</h2>
-          <p>{results.length} 首</p>
+          <h2 id="music-results-title">{query || selectedCategoryId || selectedTagId ? '筛选结果' : '全部歌曲'}</h2>
+          <p aria-live="polite" aria-atomic="true">{results.length} 首</p>
         </header>
         {songs.length === 0 ? (
           <p className="music-page__empty" role="status">曲库还是空的</p>
         ) : results.length === 0 ? (
-          <p className="music-page__empty" role="status">没有符合条件的歌曲</p>
+          <div className="music-page__empty"><p role="status">没有符合条件的歌曲</p><p>换个歌名，或试试其他分类和标签。</p><button onClick={clearFilters} type="button">清除全部条件</button></div>
         ) : (
           <div className="music-page__song-list">
             {results.map((song) => (
@@ -120,18 +131,18 @@ export function MusicPage() {
                 />
                 <div className="music-song-card__details">
                   <h3>{song.title}</h3>
-                  <p>{song.artist}</p>
+                  <p>{song.artist} · {formatTime(song.durationSeconds)}</p>
                   <p>
                     {song.category?.name ?? '未分类'}
                     {song.tags.length > 0 ? ` · ${song.tags.map(({name}) => name).join(' / ')}` : ''}
                   </p>
                 </div>
                 <button
-                  aria-label={`播放 ${song.title}`}
-                  onClick={() => void player.playTrack(song.id, resultIds)}
+                  aria-label={`${player.currentTrack.id === song.id && player.isPlaying ? '暂停' : '播放'} ${song.title}`}
+                  onClick={() => void (player.currentTrack.id === song.id && player.isPlaying ? player.toggle() : player.playTrack(song.id, resultIds))}
                   type="button"
                 >
-                  播放
+                  {player.currentTrack.id === song.id && player.isPlaying ? <PauseIcon /> : <PlayIcon />}
                 </button>
               </article>
             ))}

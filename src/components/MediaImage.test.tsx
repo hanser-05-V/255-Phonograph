@@ -5,6 +5,12 @@ import {MediaImage} from './MediaImage';
 afterEach(cleanup);
 
 describe('MediaImage', () => {
+  it('returns to a newly uploaded cover after the previous URL failed', () => {
+    const view = render(<MediaImage alt="封面" fallbackLabel="歌曲" src="/api/media/old" />);
+    fireEvent.error(screen.getByRole('img', {name: '封面'}));
+    view.rerender(<MediaImage alt="封面" fallbackLabel="歌曲" src="/api/media/new" />);
+    expect(screen.getByRole('img', {name: '封面'})).toHaveAttribute('src', '/api/media/new');
+  });
   it('falls back from a broken cover without removing surrounding controls', () => {
     render(
       <div>
@@ -26,6 +32,7 @@ describe('MediaImage', () => {
   it('uses the default cover when no source is available', () => {
     render(<MediaImage alt="夜行 封面" fallbackLabel="夜行" />);
 
-    expect(screen.getByRole('img', {name: '夜行 默认封面'})).toBeInTheDocument();
+    expect(screen.getByRole('img', {name: '夜行 默认封面'}).querySelector('img'))
+      .toHaveAttribute('src', '/brand/fallback-cover.svg');
   });
 });

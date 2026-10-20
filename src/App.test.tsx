@@ -66,6 +66,13 @@ function AppWithPublicNavigation() {
   );
 }
 
+function expectFilingFooter() {
+  const footer = screen.getByRole('contentinfo', {name: '网站备案信息'});
+  expect(within(footer).getByRole('link', {name: '蜀ICP备2026063099号-1'}))
+    .toHaveAttribute('href', 'https://beian.miit.gov.cn/');
+  return footer;
+}
+
 function mockLibraryScenario(scenario: 'pending' | 'network' | 'http' | 'empty' | 'ready') {
   const responses = {
     pending: () => new Promise<Response>(() => undefined),
@@ -100,6 +107,49 @@ afterEach(() => {
 });
 
 describe('App', () => {
+  it('opens the reading project directly even when the music library is empty', async () => {
+    mockLibraryScenario('empty');
+    renderApp('/goodnight-radio');
+    expect(await screen.findByRole('heading', {name: '晚安电台', level: 1})).toBeInTheDocument();
+    expect(screen.getByText('第一段晚安，正在准备。')).toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /播放视频/})).not.toBeInTheDocument();
+    expectFilingFooter();
+  });
+
+  it('keeps the audio instance and controls across the reading-project route', async () => {
+    mockLibraryScenario('ready');
+    const NativeAudio = window.Audio;
+    const audioConstructor = vi.spyOn(window, 'Audio').mockImplementation(
+      function AudioMock() { return new NativeAudio(); },
+    );
+    const user = userEvent.setup();
+    renderApp();
+    const mini = await screen.findByRole('region', {name: '迷你播放器'});
+    fireEvent.change(within(mini).getByRole('slider', {name: '音量'}), {target: {value: '0.35'}});
+    await user.click(within(mini).getByRole('button', {name: '静音'}));
+    await user.click(screen.getByRole('link', {name: '进入晚安电台'}));
+    expect(screen.getByRole('heading', {name: '晚安电台', level: 1})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: '迷你播放器'})).toBe(mini);
+    expect(within(mini).getByRole('slider', {name: '音量'})).toHaveValue('0.35');
+    expect(within(mini).getByRole('button', {name: '取消静音'})).toBeInTheDocument();
+    expect(audioConstructor).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the real playback queue and plays the selected stable song id', async () => {
+    mockLibraryScenario('ready');
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderApp();
+    const mini = await screen.findByRole('region', {name: '迷你播放器'});
+    await user.click(within(mini).getByRole('button', {name: '播放列表'}));
+    const queue = within(mini).getByRole('region', {name: '当前播放列表'});
+    await user.click(within(queue).getByRole('button', {name: '播放 等火山喷发的小星球'}));
+    expect(within(mini).getByRole('button', {name: '展开播放器'})).toHaveTextContent('等火山喷发的小星球');
+    expect(play).toHaveBeenCalledTimes(1);
+    await user.keyboard('{Escape}');
+    expect(within(mini).queryByRole('region', {name: '当前播放列表'})).not.toBeInTheDocument();
+    expect(within(mini).getByRole('button', {name: '播放列表'})).toHaveFocus();
+  });
   it.each([
     ['pending', '正在加载曲库…'],
     ['network', '本地服务未运行'],
@@ -112,7 +162,8 @@ describe('App', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(message);
     const stateMain = screen.getByRole('main', {name: '曲库状态'});
     expect(stateMain).toHaveAttribute('aria-busy', String(scenario === 'pending'));
-    expect(window.getComputedStyle(stateMain).minHeight).toBe('100vh');
+    const footer = expectFilingFooter();
+    expect(window.getComputedStyle(footer.parentElement!).minHeight).toBe('100vh');
     for (const otherMessage of [
       '正在加载曲库…', '本地服务未运行', '曲库加载失败', '曲库还是空的',
     ].filter((candidate) => candidate !== message)) {
@@ -129,6 +180,7 @@ describe('App', () => {
     expect(screen.getByRole('main')).toHaveClass('home-page');
     expect(screen.getByRole('region', {name: '迷你播放器'})).toBeInTheDocument();
     expect(screen.getByRole('heading', {name: '精选歌曲'})).toBeInTheDocument();
+    expectFilingFooter();
   });
 
   it('reserves desktop clearance for the mini-player error state', async () => {
@@ -138,7 +190,7 @@ describe('App', () => {
     await screen.findByRole('navigation', {name: '主导航'});
     const main = screen.getByRole('main');
     expect(main).toHaveClass('page-with-mini-player');
-    expect(window.getComputedStyle(main).paddingBottom).toBe('208px');
+    expect(window.getComputedStyle(expectFilingFooter()).paddingBottom).toBe('208px');
   });
 
   it('shares expansion state between the persistent and full players', async () => {
@@ -201,6 +253,7 @@ describe('App', () => {
 
     expect(screen.getByRole('main', {name: '管理后台'})).toHaveTextContent('管理后台');
     expect(screen.queryByText('本地服务未运行')).not.toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo', {name: '网站备案信息'})).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/admin/auth/status', expect.objectContaining({
       credentials: 'same-origin',
     }));
@@ -226,10 +279,12 @@ describe('App', () => {
 
     await screen.findByRole('navigation', {name: '主导航'});
     await waitFor(() => expect(audioConstructor).toHaveBeenCalledTimes(1));
+    const footer = expectFilingFooter();
     await user.click(screen.getByRole('button', {name: '打开音乐馆'}));
 
     expect(await screen.findByRole('main', {name: '音乐馆'})).toBeInTheDocument();
     expect(screen.getByRole('region', {name: '迷你播放器'})).toBeInTheDocument();
     expect(audioConstructor).toHaveBeenCalledTimes(1);
+    expect(expectFilingFooter()).toBe(footer);
   });
 });

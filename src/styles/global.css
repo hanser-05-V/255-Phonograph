@@ -77,6 +77,47 @@ button {
   font-size: clamp(18px, 3vw, 28px);
 }
 
+.public-site-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.public-site-shell > main {
+  flex: 1;
+  min-height: 0;
+}
+
+.public-site-shell > .page-with-mini-player {
+  padding-bottom: 48px;
+}
+
+.site-footer {
+  flex-shrink: 0;
+  padding: 24px 24px 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(247, 242, 232, 0.72);
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.site-footer a {
+  display: inline-block;
+  padding: 8px 4px;
+  color: inherit;
+  text-underline-offset: 4px;
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+  color: #f1c96f;
+}
+
+.public-site-shell--with-player .site-footer {
+  padding-bottom: 208px;
+}
+
 .home-header,
 .home-page__content {
   width: min(1180px, 100%);
@@ -968,6 +1009,10 @@ button {
 }
 
 @media (max-width: 1023px) {
+  .public-site-shell--with-player .site-footer {
+    padding-bottom: 260px;
+  }
+
   .page-with-mini-player {
     padding: 0 24px 260px;
   }

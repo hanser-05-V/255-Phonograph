@@ -13,6 +13,17 @@ afterEach(() => {
 });
 
 describe('MusicPage', () => {
+  it('restores category and tag filters from the URL and clears back to the search field', async () => {
+    const user = userEvent.setup();
+    renderPublic('/music?category=live&tag=gentle', libraryFixture);
+    expect(screen.getByLabelText('分类')).toHaveValue('live');
+    expect(screen.getByLabelText('标签')).toHaveValue('gentle');
+    expect(screen.queryByRole('button', {name: '播放 初光'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: '播放 夜行'})).toBeInTheDocument();
+    await user.click(screen.getByRole('button', {name: '清除筛选'}));
+    expect(screen.getByLabelText('按歌名搜索')).toHaveFocus();
+    expect(screen.getByRole('button', {name: '播放 初光'})).toBeInTheDocument();
+  });
   it('keeps ordinary pages clear of the fixed mini player', () => {
     renderPublic('/music', libraryFixture);
 

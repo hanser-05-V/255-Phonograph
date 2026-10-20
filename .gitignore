@@ -49,3 +49,7 @@ Thumbs.db
 android/.gradle/
 android/local.properties
 android/app/build/
+
+# Approved public UI brand assets only
+!/public/brand/hanser-main.png
+!/public/brand/hanser-chibi.png

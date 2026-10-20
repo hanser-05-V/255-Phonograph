@@ -1,16 +1,18 @@
-# 255留音机个人云端测试运维手册
+# 255留音机云端运维与公开初版交接手册
 
-当前状态更新于 2026-10-19：age 合成数据正向解密、错误密钥和截断密文拒绝测试通过；正式数据路径及指定目录权限已核对；标准 COS 桶 255-backups-1378821599 已创建，成都、私有读写、单 AZ，文件列表为空。下一步为专用权限和隔离对象联调，生产备份/恢复仍未执行。以[部署路线与接续提示词](private-cloud-next-steps.md)、验收记录最新章节及本手册第 14 节为当前入口；第 10–13 节为历史，不能依旧状态重复安装或初始化。六文件本地修改及静态验证完成后，用户另行批准提交/推送当前开发分支；云端变更仍需单独授权。
+**最新接续：** 第 16 节记录正式界面候选、日常上传发布流程和待批准部署步骤；第 15 节仍是服务器实际公开 Caddy 配置。
 
-用户已明确网站面向 hanser 粉丝免费提供直播语音切片与翻唱音频。本文原有全站私人认证等操作材料属于旧私用设计，尚未完成公开访问方案调整；不能直接移除认证并启用入口。本轮仅更新备份接入模板与交接文档，没有修改业务代码、Caddy 或设计规格。
+当前状态更新于 2026-10-20：ICP 已通过，apex DNS、云防火墙 80/443、Caddy HTTPS 入口已由用户验证，首页可以公开访问；管理员已初始化。公安申请已由用户取消，待初版完善后重新提交。当前主线为丰富网站功能，目标见[初版路线](private-cloud-next-steps.md)和[实施计划](../superpowers/plans/2026-10-20-public-initial-release.md)。本批更新文档与公共页脚，服务器尚未部署这些源码改动。
+
+公开入口的用户回传证据及实际获批配置见第 15 节。仓库 `deploy/Caddyfile`、`caddy.env` 示例及 drop-in 仍按旧私用设计，不直接用于覆盖当前公开入口。第 10–14 节保留当时的证据与审批边界；旧章节中的“未开放”“masked”不代表当前状态。COS 合成正向、GET 拒绝及四项 ACL 拒绝已通过，正式备份/恢复、grant 条件和计费未验收，作为发布配套事项继续保留。
 
 设计依据：[规格](../superpowers/specs/2026-09-28-private-cloud-test-deployment-design.md)、[实施计划](../superpowers/plans/2026-09-28-private-cloud-test-deployment.md)。结果以[验收记录](private-cloud-acceptance.md)为准。
 
 ## 1. 采购及部署前输入
 
 - 腾讯云成都二区实例 `lhins-856nphe0`，名称 `255-phonograph`，公网 IP `1.14.111.74`；原采购记录为锐驰型 2 核 2 GB、40 GB SSD、200 Mbps 峰值、无限流量，到期原值 `2026-12-31 11:53:38`、自动续费关闭，当前账单及到期状态未重查。2026-10-16 用户终端确认系统为 Ubuntu 26.04 LTS/x86-64。用途已改为面向粉丝，容量与访问方案需据此复核。
-- 域名 `255fm.cn`；四川个人首次备案已提交，最近截图显示腾讯云审核中，服务内容为“其他、网络音乐”。尚无备案通过、个人主体内容审核结论或最终网站名称的回传证据。域名、主体材料和费用以官方渠道为准；备案通过及入口方案确认前保持当前不开放域名网站服务的阶段。
-- 实际为同地域标准 COS 桶 `255-backups-1378821599`，成都 `ap-chengdu`，私有读写、单 AZ；已创建但尚无对象。原 Lighthouse 选型已被实际资源替代，计划只放加密备份与不含秘密的索引，不承担播放器媒体分发。
+- 域名 `255fm.cn`；四川个人 ICP 已通过，号码 `蜀ICP备2026063099号-1`、备案网站名称“毛怪小站”。页面品牌“255 留音机”，重新申请公安备案时核对名称和实际内容。原公安申请已由用户取消，目前没有公安备案号；ICP 页脚先使用已取得的真实号码。
+- 实际为同地域标准 COS 桶 `255-backups-1378821599`，成都 `ap-chengdu`，私有读写、单 AZ；指定合成测试对象已验证清理，不外推为当前全桶为空。原 Lighthouse 选型已被实际资源替代，计划只放加密备份与不含秘密的索引，不承担播放器媒体分发。
 - `server/ops/health.ts` 仍使用 Lighthouse 历史费率、服务器 45 元/月和域名 39 元/年的参考基数。这些不是当前成交价或标准 COS 完整计费模型，原 49.24 元/月示例不能作为当前费用结论。标准 COS 还存在请求等计费项；优惠额度适用性尚未核实，恢复下载和所有保留副本均需计入。费用模型适配及当前价格/账单核对须在启用运维定时器前另行完成，本轮不修改健康代码。200 Mbps 峰值不能替代家庭访问实测。
 - 采购前记录准确服务器 ID、IP、主机指纹、域名、桶名、独占前缀、续费周期和账单告警设置；不得用示例值填充生产配置。实名材料在服务商官方页面处理。
 
@@ -67,7 +69,11 @@ sudo systemd-run --wait --collect --pipe --unit=phonograph-initialize \
 
 ## 5. 入口与管理员
 
-备案完成后设置域名解析及 HTTPS。使用 [Caddyfile](../../deploy/Caddyfile)，从 `/etc/255-phonograph/caddy.env` 读取 `PHONOGRAPH_DOMAIN`、`PHONOGRAPH_GATE_USER`、`PHONOGRAPH_GATE_HASH`。域名只含主机名；用户名限定普通字母数字，密码哈希通过 Caddy 交互式 `caddy hash-password` 生成，避免把明文密码写命令参数或聊天。哈希同样不进 Git、报告或终端回传。
+当前公开站点采用第 15 节记录的配置：Caddy 反向代理回环 3001，普通首页/音乐馆无需入口密码，后台沿用应用管理员会话。`needsSetup=false` 证明管理员已初始化，不代表已完成真实 HTTPS 后台登录和上传验收。现有密码不重置，数据不重新初始化。
+
+下面保留旧私用模板的用途说明，不能把它当作当前服务器配置或执行指令。若需要恢复全站私人访问，需重新列明配置、影响及批准范围；当前继续公开初版开发。
+
+旧私用 [Caddyfile](../../deploy/Caddyfile) 从 `/etc/255-phonograph/caddy.env` 读取 `PHONOGRAPH_DOMAIN`、`PHONOGRAPH_GATE_USER`、`PHONOGRAPH_GATE_HASH`。域名只含主机名；用户名限定普通字母数字，密码哈希通过 Caddy 交互式 `caddy hash-password` 生成，避免把明文密码写命令参数或聊天。哈希同样不进 Git、报告或终端回传。
 
 Caddy 的 systemd 环境文件由服务管理器读取，不需要给 caddy 用户读取其他秘密文件的权限。[drop-in](../../deploy/caddy-service.conf)要结合官方服务的原有路径保护验证；确保 `/run/255-phonograph` 已获准创建，否则只读路径不存在会阻止 Caddy 启动。
 
@@ -79,13 +85,13 @@ Caddy 先认证再返回维护 503，移除上游 Authorization，重写真实�
 
 ## 6. 备份密钥和对象权限
 
-当前使用公司电脑；生产 age 密钥留待家中受控设备创建，私钥在服务器之外保管并验证副本。服务器只放公钥 recipients 文件；已有两把服务器测试密钥只用于合成演练，不用于生产。私钥不进项目、聊天或命令行参数。独立恢复时单独批准私钥使用位置与方式。
+用户说明公司和家中的电脑均由本人使用，不再因地点推迟开发。生产 age 密钥仍待批准具体生成和保存位置，私钥在服务器之外保管并验证副本。服务器只放公钥 recipients 文件；已有两把服务器测试密钥只用于合成演练，不用于生产。私钥不进项目、聊天或命令行参数。独立恢复时单独批准私钥使用位置与方式。
 
 [备份配置模板](../../deploy/backup-config.example.json)已填入桶 `255-backups-1378821599`、地域 `ap-chengdu`、站点 Origin `https://255fm.cn` 及最近运行版本 `ad23f3644498dd542357092c1aaca018e5c971d4`。安装前复核 releaseId 与 current；不要用仅修改文档的提交 SHA 代替服务器实际运行版本。成都二区不是地域参数，不填 `ap-chengdu-2`。生产配置、正式 recipients 与访问凭据尚未安装，模板中的非空值不代表可以执行备份。
 
-独占对象前缀固定为 `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/`。这是选定的逻辑路径，未写入对象，不必上传空文件夹标记。更换前缀必须同时审查配置、策略与旧索引恢复路径，不能让例行备份自动创建新索引。
+独占对象前缀固定为 `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/`。指定合成测试对象已完成写入和条件清理，正式索引/备份包尚未安装，不必上传空文件夹标记。更换前缀必须同时审查配置、策略与旧索引恢复路径，不能让例行备份自动创建新索引。
 
-新增 [CAM 用户策略模板](../../deploy/cos-backup-policy.example.json)用于专用程序访问子用户，建议名称 `phonograph-backup`，策略名 `phonograph-backup-prefix`，均为待审批名称而非已创建资源。先只读检查有无同名资源；有则审查后复用，不覆盖已有策略。此模板不含 principal，不能直接作为存储桶策略提交。
+[CAM 用户策略模板](../../deploy/cos-backup-policy.example.json)已对应现有策略 `phonograph-backup-prefix`（ID `290399112`，版本 1），并已直接关联 `phonograph-backup`（UIN `100053927521`）。先前只读回读确认用户禁止控制台登录、用户组 0、仅此策略。复用现有资源，不重新创建或覆盖；创建经过与审批偏差见第 14.2 节。模板不含 principal，不能直接作为存储桶策略提交。
 
 | 操作 | 限定资源 | 用途与条件 |
 | --- | --- | --- |
@@ -95,11 +101,11 @@ Caddy 先认证再返回维护 503，移除上游 Authorization，重写真实�
 
 资源中的 `uid/1378821599` 使用桶 APPID，不是主账号 UIN。没有列桶、桶管理、改 ACL、删除索引、multipart 或其他前缀权限。索引仍可由 PutObject 覆盖以更新成功集，这不是不可变备份；`.tar.age` 通配符限定键名，不能验证内容是否加密，实际上传必须通过 age 加密及校验流程。当前 SDK 仅用四类对象接口，HTTPS 由客户端设置；不需要为控制台显示文件列表额外授予 GetBucket。
 
-策略采用受限 allow，须配合无其他授权的专用子用户；用户组、其他 CAM 策略或资源策略可能另外赋权，因此绑定前核对全部有效权限。不要附加全量 COS 策略或允许控制台登录。凭据生成及落盘另行审批，`/etc/255-phonograph/backup.env` 仅含 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY`，root:root 0600；不向聊天回传值、不放命令行参数、不复制完整应用环境。手工恢复可另准备只读身份。
+策略采用受限 allow，须配合无其他授权的专用子用户；用户组、其他 CAM 策略或资源策略可能另外赋权，因此操作前按需复核有效权限。不要附加全量 COS 策略或允许控制台登录。旧密钥已禁用保留，替换密钥启用并安全保存由用户确认；已用于获批合成实测，不重新生成。后续生成/替换、停用、落盘分别审批；正式 `/etc/255-phonograph/backup.env` 仅含 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY`，root:root 0600，最近检查时尚未安装。探针已通过隐藏输入临时注入进程环境完成，不向聊天回传值，不放命令行参数，不复制完整应用环境。手工恢复可另准备只读身份。
 
 官方依据：[策略语言与资源路径](https://cloud.tencent.com/document/product/436/18023)、[条件键](https://cloud.tencent.com/document/product/436/71306)、[private ACL 与禁止附加授权头示例](https://cloud.tencent.com/document/product/436/71307)。本地静态检查不能替代 CAM 平台校验和实际权限测试。
 
-先单独批准隔离前缀、准确测试对象键、合成密文来源、下载路径、访问凭据及删除范围。隔离策略的资源路径应由批准的隔离前缀生成，不能为了联调把生产策略改成整桶权限。验证 put/head/get/delete、下载 SHA-256、前缀外操作拒绝；每次拒绝核实实际错误码，不能把网络错误当权限通过。生产 index.json 不参与这一步；不通过备份命令联调，避免停正式应用。
+先单独批准准确测试对象键、合成密文来源、下载方式、凭据使用及删除范围。第 14.3 节使用现有前缀下的专用测试键，不新增前缀权限，不改变策略；这是名称/数据隔离，不代表身份没有操作正式索引的能力。先验证 put/head/get/delete 和下载 SHA-256，前缀外拒绝与公共访问拒绝另列范围验证。不能把网络错误或任意 403 当权限通过。生产 index.json 不参与这一步；不通过备份命令联调，避免停正式应用。
 
 随后才批准正式公钥安装、生产配置和空索引初始化。已有索引时命令拒绝，例行备份遇到 404 不自动重建。以下是后续生产初始化材料，当前未授权执行：
 
@@ -245,7 +251,7 @@ Node 路径和发布代码真实存在后，才能运行 `systemd-analyze verify
 
 成都全部备份日均合计 10 GB、30 天且无公网下载时，参考总额 `45 + 39 / 12 + 10 × 0.0033 × 30 = 49.24` 元/月。不是每份 10 GB 额度，也不表示已创建桶或产生账单。本地验证结果见[验收记录](private-cloud-acceptance.md)最新章节。
 
-## 12. 2026-09-30 服务器准备交接与内部测试操作边界
+## 12. 2026-09-30 服务器准备交接与内部测试操作边界（历史）
 
 ### 12.1 当前事实与操作方式
 
@@ -322,11 +328,11 @@ age 包 1.2.1-1build1 已安装，二进制版本与权限已验证。安装后�
 
 最近备案截图为四川个人首次备案“腾讯云审核中”，不是备案通过；公安联网备案授权完成也不是办结。用户已明确粉丝向免费音频用途，填写“其他、网络音乐”，个人备案适用性与内容授权仍按实际审核/授权结果处理。旧全站私人认证设计需要重新评估；本轮不修改 Caddy 配置或开放入口。
 
-用户已批准四份文档及开发分支提交/推送供家中拉取；Git 同步不搬迁云端服务器或私钥。家中从[部署路线第六节](private-cloud-next-steps.md#六家中电脑同步)同步仓库，再用第七节提示词继续。按用户要求手动操作服务器，一次一条命令，等待实际输出；不自动派发子代理，不读取真实曲库、不重置密码、不清理旧日志，不重跑已完成的安装或初始化。
+用户已批准四份文档及开发分支提交/推送供家中拉取；Git 同步不搬迁云端服务器或私钥。家中从[部署路线第六节](private-cloud-next-steps.md#六跨电脑同步)同步仓库，再用第七节提示词继续。按用户要求手动操作服务器，一次一条命令，等待实际输出；不自动派发子代理，不读取真实曲库、不重置密码、不清理旧日志，不重跑已完成的安装或初始化。
 
-## 14. 2026-10-19 标准 COS 接入准备（当前）
+## 14. 2026-10-19 标准 COS 接入与实测（已完成的合成验证）
 
-### 14.1 已完成的检查
+### 14.1 已完成的检查（服务器和建桶观察为历史证据）
 
 - age 合成明文/恢复文本各 59 字节，cmp 相同，SHA-256 均为 `24f21c141fff7ffd13499926fdcc49d1380351bb5fed8d3fad3133c373119360`。正确解密通过；错误密钥和截断密文均退出 1，并返回对应原因，输出文件均 0 字节。目录 0700、十个文件 0600、ubuntu:ubuntu，verify.log 已写入并回传。保留全部测试产物。
 - systemctl 指向 `/etc/systemd/system/phonograph.service` 和 `/etc/255-phonograph/phonograph.env`，WorkingDirectory 为 current，User/Group 为 phonograph，无 drop-in，StateDirectory 为空。只读取 PHONOGRAPH_DATA_DIR 一项，确认 `/var/lib/255-phonograph`，并非由 StateDirectory 空值推断没有数据目录。
@@ -335,8 +341,242 @@ age 包 1.2.1-1build1 已安装，二进制版本与权限已验证。安装后�
 - 标准 COS 桶创建于 2026-10-19 12:20:14；成都、私有读写、单 AZ，文件列表为空。版本控制、静态网站、全球加速未开启；复制、生命周期、日志存储、CORS 未配置；数据万象未开通。ACL 只见所有者，桶策略为空，关联 CAM 子账号表无结果；未审计账号全部角色/用户组权限。
 - 服务端加密只有创建时选择“不加密”的截图，创建后没有重新核对这一项。端点为 `https://255-backups-1378821599.cos.ap-chengdu.myqcloud.com`。CDN 和媒体分发不属于本阶段。
 
-### 14.2 尚待实施与授权
+### 14.2 CAM 状态与分阶段授权
 
-本轮六文件为本地接入材料：备份配置、CAM 策略和四份交接文档。实际策略创建/关联、访问密钥、服务器文件落盘、测试对象写删、生产空索引、停机备份、恢复与定时单元均尚未执行，须逐项列出准确资源及影响后批准。用户随后已批准六文件提交及推送到 origin/codex/pc-music-player，结果以 Git 输出和远端 SHA 为准；该批准不包含云端部署。
+此前六文件材料已提交并推送为 `22db7be60e58dacd892cfffccde472584bbc506a`。之后的 CAM 证据比旧文档更新：
 
-先从 CAM 专用子用户的只读检查继续；没有生产公钥时可以准备权限及合成联调方案，不在公司电脑生成生产私钥。按第 6 节完成对象验证，再安排完整恢复和故障测试；按第 1 节解决费用模型差异。保持原服务状态和历史证据，不开放网站入口。详细交接和家庭同步步骤以[部署路线](private-cloud-next-steps.md)为准。
+- 策略 `phonograph-backup-prefix`，ID `290399112`，版本 1，2026-10-19 14:36:04 创建，内容与模板一致；这项策略创建有对应批准。
+- 用户 `phonograph-backup`，UIN `100053927521`，15:08:43 创建；控制台访问已禁止、用户组 0。
+- 15:13:38 直接关联唯一上述策略；置换前仅 1 把 API 密钥，15:08:43 创建、已启用，用户答复未保存或不确定。此项为置换前历史状态，最新结果见下文及第 14.4 节。
+- 用户确认只完成验证码，没有点击最终“完成”。代理误将向导前面的“下一步”视作纯准备操作，实际已创建用户/密钥并关联策略。这些变更不属于原审批，不能补记为获批；后续不要重复创建或继续旧向导，也不要在未获批时停用/删除密钥。
+
+腾讯云说明 SecretKey 只在创建时可保存，之后不能查询。[官方访问密钥说明](https://cloud.tencent.cn/document/product/598/37140)
+
+随后用户单独批准停用旧密钥（不删除）及自行新建一把替换密钥。旧密钥停用在用户完成微信身份验证后，页面回读为“已禁用”；用户确认新密钥已安全保存、弹窗已关闭，并确认两把密钥为旧禁用、新启用。代理未读取 SecretKey，不记录凭据值，也未取得新密钥的精确创建时间。
+
+截至正向实测阶段，批准分阶段发生：先是独立脚本、测试及三份文档共五文件的本地开发；随后是指定服务器目录和脚本安装、哈希/权限/语法/离线计划检查；再是上述密钥置换；最后是隐藏输入新凭据到临时进程环境及唯一测试对象的一次 COS 上传、读取和删除。该阶段随后另批三份文档及不落盘检查，实际结果见第 14.4 节。后续 GET 拒绝实测、ACL 本地开发及另行获批的安装/执行见第 14.5–14.6 节；其余权限拒绝测试、正式 age 密钥与配置安装、生产索引、停机备份、恢复、定时单元和 Git 提交/推送仍需对应批准。电脑地点不构成开发前置条件；本次批准不自动覆盖重复运行、扩大测试或删除旧密钥。
+
+### 14.3 独立 COS 合成数据探针
+
+工具：[cos-smoke-check.mjs](../../deploy/cos-smoke-check.mjs)；测试：[cos-smoke-check.test.mjs](../../deploy/cos-smoke-check.test.mjs)。直接使用已部署的 COS SDK 3.0.0，不调用生产备份 CLI；无依赖安装、构建或服务控制。默认运行或传 `--plan` 仅打印计划，不加载 SDK、读取凭据或服务器文件。
+
+| 项目 | 准确范围 |
+| --- | --- |
+| 桶与地域 | `255-backups-1378821599`，`ap-chengdu`，HTTPS |
+| 唯一对象键 | `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/cos-smoke-20261019-6fca0dca-24d1-4ac0-8cc8-28e0ce9b3281.tar.age` |
+| 合成输入（只读） | `/var/tmp/255-phonograph-age-verify-20261016/plain.txt.age`，本次已核对 259 字节、0600、uid/gid 1000；当前密文哈希见第 14.4 节，不使用明文 SHA-256。 |
+| 输入边界 | 真实路径必须仍为上述路径；拒绝链接、非普通文件、权限/长度变化；最大读取 260 字节并要求实际为 259。校验 age 文件头及独立确认的哈希；不读取任何测试私钥。 |
+| 已安装服务器目录 | `/var/tmp/255-phonograph-cos-verify-20261019/`，0700 ubuntu:ubuntu；首次创建前确认不存在，接续时保留。 |
+| 已安装服务器文件 | 仅上述目录内 `cos-smoke-check.mjs`，0600 ubuntu:ubuntu、10529 字节；本地与服务器 SHA-256 一致，语法及离线计划已通过。 |
+| 下载与报告 | 下载写入有 259 字节上限的内存流并计算 SHA-256；报告只写终端 stdout，不生成下载文件或日志文件。 |
+| 既有代码读取 | `current` 链接目标必须为 `/srv/255-phonograph/releases/ad23f3644498dd542357092c1aaca018e5c971d4`；从该发布加载 SDK，并校验版本 3.0.0。实际运行使用 Node 24。 |
+| 凭据 | 本次已单独批准并使用隐藏输入，将 `PHONOGRAPH_COS_SECRET_ID`、`PHONOGRAPH_COS_SECRET_KEY` 传入临时进程环境；不放命令参数、不回传值、不写 backup.env。后续使用须对应执行批准。 |
+| 临时权限 | 无新增策略、用户组或 CAM 权限。既有 GetObject、HeadObject、PutObject、DeleteObject 覆盖该测试键；没有列桶、修改 ACL 或 multipart 操作。 |
+
+该输入是之前验证过的 age 加密合成文本，不是 tar 包。工具仅验证 COS 传输，不能证明正式备份归档、解密、恢复或大文件行为正确。测试键与正式对象共享策略前缀，因此只构成名称和数据隔离；代码固定桶/键/来源，拒绝命令行覆盖这些值，不读取或写入生产 index.json。
+
+执行顺序为 HEAD 确认不存在 → PUT（private ACL、明确长度、`x-cos-forbid-overwrite: true`，无 grant）→ HEAD 校验长度和 ETag → GET（If-Match、流长度上限、SHA-256）→ DELETE → HEAD 确认不存在。缺失必须是带 COS request-id 的 404/NoSuchKey；权限/网络/签名失败均不能当作缺失。禁止覆盖头只在桶版本控制未开启时生效，因此运行前必须只读复核，并显式传入 `--confirm-unversioned-bucket`。任何响应出现版本标识或删除标记都会中止。[COS PUT Object 文档](https://intl.cloud.tencent.com/document/product/436/7749?lang=en)
+
+执行参数形状为 `--execute --source-sha256 <已核对的密文SHA256> --confirm-unversioned-bucket`，参数本身不替代用户批准。安装/执行批准前只展示离线计划，不提供可直接执行云端操作的完整命令。执行环境须禁用 Node 编译缓存，日志、输出重定向、临时凭据文件若要新增，应扩展文件范围重新批准。
+
+失败报告仅包含阶段、固定测试键、长度/哈希、远端状态、白名单错误码、HTTP 状态和符合格式的 request-id，不输出完整 SDK error、message、stack、签名 URL、请求头或凭据。SDK 内部可能重试；PUT 超时、409 或断连后不确定是否已有对象，保留 `unknown`，停止，不自动删除。HEAD/下载失败保留测试对象；删除失败或删除后的 HEAD 不明确，也不会报告清理成功。后续只读核对及精确清理另批，不循环执行或更换键规避错误。
+
+本轮正向四接口测试不覆盖前缀外拒绝、公共访问拒绝、真实 ACL 拒绝条件或账单。这些仍为后续验收项；403 也可能由签名过期、时间偏差等引起，需结合实际错误码和成功请求证据判断。[COS 403 排查](https://cloud.tencent.com/document/product/436/54303)
+
+### 14.4 服务器安装与 COS 正向实测（已通过）
+
+2026-10-19，用户按批准范围逐条执行服务器命令并回传结果。目录/脚本安装、离线检查、密钥置换与临时凭据输入/COS 实测分别获得批准；成功结果不是对更早 CAM 创建偏差的追认。
+
+| 检查项 | 实际结果 |
+| --- | --- |
+| 执行环境 | Node v24.21.0；current 为 `/srv/255-phonograph/releases/ad23f3644498dd542357092c1aaca018e5c971d4`；该发布的 COS SDK 3.0.0 |
+| 合成来源 | `/var/tmp/255-phonograph-age-verify-20261016/plain.txt.age`；真实路径与输入路径相同，普通文件，0600、uid/gid 1000、259 字节 |
+| 来源密文 SHA-256 | `49700c92dbe430571fcf13b52c5284cfe09da442b4c49454ca4d24b93d1f325b` |
+| 安装目录 | `/var/tmp/255-phonograph-cos-verify-20261019/`；0700 ubuntu:ubuntu |
+| 安装脚本 | `cos-smoke-check.mjs`；0600 ubuntu:ubuntu、10529 字节 |
+| 脚本 SHA-256 | `911eaadf9a4ad4157f79d90edbfdec5139553e077c2a2a1376bb2c295c87d0c2`；本地、上传后及真实执行前一致 |
+| 离线检查 | `node --check` 成功后运行 `--plan`，返回固定桶、对象键及六阶段计划；未发 COS 请求 |
+| 桶前置条件 | 执行前浏览器复核 `255-backups-1378821599`，成都、私有读写、版本控制未开启；策略不变，无临时扩权 |
+| 执行结果 | `ok: true`、`stage: complete`、`remoteState: absent`；源与下载均 259 字节，下载 SHA-256 与来源一致 |
+
+真实执行通过清空继承环境的独立 Bash 启动；先核对脚本哈希，再以隐藏输入读取用户保存的新凭据。凭据只在子进程变量/环境中使用，不作为命令参数或 shell 历史内容，不写凭据文件；关闭 core dump、禁用 Node 编译缓存，报告仅输出终端。用户回传结果后终端已回到外层提示符，后续会话不能假定仍有这些变量。
+
+成功报告对应第 14.3 节唯一对象键的六阶段完成：首次 HEAD 不存在、PUT private、HEAD 长度和 ETag、GET 长度和 SHA-256、DELETE、最后 HEAD 不存在。完整 JSON 见[验收记录](private-cloud-acceptance.md#2026-10-19-密钥置换服务器探针安装与-cos-正向联调通过)。最后的 `absent` 只证明该测试对象不存在，不能据此宣称全桶为空或所有权限边界均正确。
+
+服务器保留探针目录、脚本及原 age 演练证据；没有写下载文件、探针日志、生产 index.json 或正式备份配置，没有操作生产数据、服务或 Caddy。正式服务状态和三个备份配置文件的存在性未在本次复验，仍标历史观察。
+
+下一步先准备权限拒绝测试的具体对象、拒绝条件及清理范围，再申请执行批准。前缀外访问、公共访问、ACL/grant 拒绝条件、正式 age 密钥、完整备份/解密/恢复、故障补偿及标准 COS 费用验收仍未完成；不自动重跑本次测试或扩大既有策略。
+
+### 14.5 指定路径 GET 拒绝检查（实测通过）
+
+用户批准后逐条执行内存命令，使用同一替换密钥、已部署 SDK 3.0.0 的签名器及原生 HTTPS。只发 4 次 GET，不上传、删除、列桶或改权限，不创建脚本、下载文件或凭据文件。服务器当前链接、Linux/Node 24 和 SDK 版本检查在命令中通过；未读取合成密文或生产配置。
+
+测试名称共同部分为 `cos-deny-20261019-526faf21-8a4f-4335-8e23-c488891d3c3f`：
+
+| 用例 | 对象键 | 实测 |
+| --- | --- | --- |
+| control-before / control-after | `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/cos-deny-20261019-526faf21-8a4f-4335-8e23-c488891d3c3f.tar.age` | 两次 404 NoSuchKey |
+| outside-prefix | `phonograph-deny-check/cos-deny-20261019-526faf21-8a4f-4335-8e23-c488891d3c3f.tar.age` | 403 AccessDenied |
+| wrong-suffix | `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/cos-deny-20261019-526faf21-8a4f-4335-8e23-c488891d3c3f.txt` | 403 AccessDenied |
+
+最终 `ok: true`、`mutations: none`、四项 `passed: true`；两项拒绝均具备标准拒绝消息和有效 COS RequestId。前后 404 对照用于区分凭据/签名故障与这两条路径的权限拒绝。只证明这些指定 GET 请求的结果，不外推到对象写删、匿名访问、grant 或全账号授权。完整 JSON 见[验收记录](private-cloud-acceptance.md#2026-10-19-get-拒绝实测通过与-acl-探针本地开发)。
+
+### 14.6 匿名读取及上传 ACL 探针（实测通过）
+
+最初批准新增 [cos-acl-check.mjs](../../deploy/cos-acl-check.mjs)、[cos-acl-check.test.mjs](../../deploy/cos-acl-check.test.mjs) 并更新三份部署文档，共五文件及不落盘本地验证；这项批准不包含服务器或 COS 操作。随后用户单独批准服务器单文件安装及离线检查，完成后再明确回复“确认条件，批准 ACL 实测及条件清理”。一次真实执行已通过；当前仅获批将结果写回三文档。各次批准不互相追溯，也不覆盖重复执行、CAM 变更或 Git 提交/推送。
+
+| 范围 | 固定配置 / 当前结果 |
+| --- | --- |
+| 桶及地域 | `255-backups-1378821599`，`ap-chengdu`，不增加权限 |
+| 唯一新对象键 | `phonograph-backups/e57796e4-d131-4652-880e-a3c0613369c5/cos-acl-20261019-526faf21-8a4f-4335-8e23-c488891d3c3f.tar.age` |
+| 只读输入 | `/var/tmp/255-phonograph-age-verify-20261016/plain.txt.age`；259 字节、普通文件、0600、不得是链接 |
+| 输入密文 SHA-256 | `49700c92dbe430571fcf13b52c5284cfe09da442b4c49454ca4d24b93d1f325b`；执行参数必须与此固定值一致 |
+| 已部署依赖 | Node 24 Linux；current 必须为 `/srv/255-phonograph/releases/ad23f3644498dd542357092c1aaca018e5c971d4`；该发布的 SDK 必须为 3.0.0 |
+| 本地脚本 | 15730 字节；SHA-256 `e4ace48c7530557e79b910f3a79efebb6f63a12a0cef1d60846c62af76382f83` |
+| 本地测试 | 33/33 通过；包含真实本地 SDK 签名器与内存 HTTPS 替身的衔接，没有真实凭据或网络请求 |
+| 服务器文件（已批准/已安装） | `/var/tmp/255-phonograph-cos-verify-20261019/cos-acl-check.mjs`，0600 ubuntu:ubuntu、15730 字节；复用 0700 ubuntu:ubuntu 目录，安装前已确认真实路径一致、目标不存在；上传后哈希、语法和离线计划均通过 |
+| 凭据 | 本次用户在独立 Bash 中隐藏输入，经临时子进程环境传入；无 backup.env 或其他凭据文件，值未进入参数、回传结果或文档；结束已返回外层提示符 |
+
+默认调用及 `--plan` 仅打印离线计划；不读取凭据、服务器文件或加载 SDK。实际运行必须同时提供 `--execute --source-sha256 <上述固定哈希> --confirm-unversioned-bucket`，并已单独取得安装、执行及清理批准。此处列出接口不构成执行授权。
+
+流程和判定：
+
+1. 带签名的 GET（Range 0–0）确认 `404 NoSuchKey`；已有对象、缺少 RequestId、NoSuchBucket 或其他错误即停止。存在性与匿名检查遇成功响应立即关闭流，不读取对象正文。
+2. PUT private 合成对象，附唯一运行 UUID 元数据及禁止覆盖头，Content-Length/Content-MD5/ACL/标记均参与签名。HEAD 验证标记和长度，带 If-Match 的 GET 在内存核对 259 字节和 SHA-256，再以 HEAD 确认 ETag 未变。
+3. 对该已存在对象发送不带签名的 GET，要求 403 AccessDenied、标准拒绝消息和有效 RequestId。核对归属后删除对照对象，并以带签名 GET 的 NoSuchKey 确认不存在。
+4. 对同一已确认不存在的键依次尝试遗漏 ACL、default、public-read；每项必须得到明确权限拒绝，且随后带签名 GET 仍为 NoSuchKey。400 参数错误、签名错误或网络失败不计为通过。
+5. 正常共 17 次请求。任一异常立即终止后续用例；含有条件恢复时整次最多 21 次。每个 HTTPS 调用最多 30 秒，不自动重试、不跟随重定向；下载上限 259 字节，错误正文上限 8192 字节。
+
+失败时只在本次确实发出 PUT 且未发生冲突或版本异常后，允许一次有条件恢复：以 HEAD 核对本次 UUID、大小和 ETag，再下载校验 SHA-256，最后 HEAD 确认后才能 DELETE；随后必须验证 NoSuchKey。归属不明、哈希/标记不符、版本标记或清理失败时保留并报告，不盲删、不重试 DELETE。意外 public-read 成功可能让这份合成密文短暂公开，测试仍判失败，即使后续已清理。
+
+执行前必须只读复核桶版本从未开启且仍未开启，并确保测试期间无人并发写入此键；HEAD 与 DELETE 之间没有原子条件保护，校验不能消除并发竞态。授权只针对这个合成键，不授权更改策略、对象 ACL 接口、生产 index.json、真实备份/恢复、服务或正式配置。
+
+本阶段不测试 grant 头部，不能宣称全部权限边界完成。private/default/public-read 和省略 ACL 的含义依据 [PUT Object 官方说明](https://cloud.tencent.com/document/product/436/7749)，条件限制依据[条件键说明](https://cloud.tencent.cn/document/product/436/71307)。本次安装、执行与条件清理已分别获批；后续新增请求、重复运行或扩大范围仍须另批。
+
+#### 服务器安装与一次实测结果
+
+安装前用户回传目录为 0700 ubuntu:ubuntu、真实路径一致，目标为 `TARGET_ABSENT`。单独获批后由用户上传，核对脚本 SHA-256 为 `e4ace48c7530557e79b910f3a79efebb6f63a12a0cef1d60846c62af76382f83`，权限 0600、所有者 ubuntu:ubuntu、15730 字节；随后 `node --check` 和 `--plan` 均通过。只安装这一文件，不重新创建目录或安装依赖。
+
+云端执行准备时，桶概览显示私有读写、版本控制未开启，但刷新后的读取连续超时，未取得刷新后的独立状态证据。用户随后确认桶从未开启版本控制、仍未开启，且测试期间独占上述键，并批准一次 ACL 实测及条件清理。此项前提来源为用户确认，不补写成浏览器复核成功。
+
+用户按单条命令执行：清空继承环境、关闭历史与 core dump、先核对脚本哈希，再隐藏输入凭据并通过临时环境启动 Node；禁用编译缓存，没有把凭据放入参数或写入文件。回传 `ok: true`、`mode: execute`、`stage: complete`、`remoteState: absent`；runId 为 `8b7fbf4f-42c9-49cc-92fd-f789060f4208`。
+
+| 本次用例 | 结果 |
+| --- | --- |
+| anonymous-read | 403 AccessDenied，passed=true |
+| acl-omitted | 403 AccessDenied，passed=true |
+| acl-default | 403 AccessDenied，passed=true |
+| acl-public-read | 403 AccessDenied，passed=true |
+| private-fixture-cleanup | deleted-verified，最终指定对象不存在 |
+
+四项拒绝均含有效 COS RequestId，完整原始 JSON 见[最新 ACL 验收记录](private-cloud-acceptance.md#2026-10-19-acl-探针安装与匿名读取上传-acl-拒绝实测通过)。按已核对哈希脚本的成功路径，private 对照上传、归属/长度/下载哈希/ETag 核验、匿名拒绝、对照删除，以及三种 ACL 拒绝后的 NoSuchKey 核验均完成。正常路径设计为 17 次请求；回传 JSON 未单列计数，不额外声称已独立统计。
+
+本次没有触发意外 PUT 成功或丢失响应后的条件恢复，不能据此认定该失败分支完成云端验收。服务器保留两份探针脚本和原 age 证据；下载只在有上限的内存中处理，没有创建下载、日志或凭据文件。没有修改 CAM/桶策略、生产索引、正式备份配置、应用或 Caddy；正式服务状态沿用历史证据。
+
+当时后续项为正式备份 CLI、配置和 age 公钥/凭据交接，以及 grant 条件与费用未验收项。2026-10-20 用户已将开发主线调整为丰富网站功能；这些备份配套项继续保留，在对应批次明确新增文件、数据、停机及清理范围后另批执行。不自动重跑本次测试或删除旧证据。
+
+## 15. 2026-10-20 公网入口已打通与初版开发接续
+
+### 15.1 状态及证据来源
+
+以下来自用户终端输出、云控制台截图和浏览器截图，不是本次代理直接登录服务器的检查：
+
+| 项目 | 结果 |
+| --- | --- |
+| 应用 | phonograph.service active/running/enabled；带 Host:255fm.cn 的回环 health 和首页请求均返回 200 |
+| 配置白名单 | PHONOGRAPH_DEPLOYMENT=private-cloud；PHONOGRAPH_DATA_DIR=/var/lib/255-phonograph；PHONOGRAPH_SITE_ORIGIN=https://255fm.cn |
+| 管理员 | 用户获批完成初始设置，最终 `{"needsSetup":false,"authenticated":false}`；密码未回传 |
+| DNS | DNSPod 新增 @ / A / 默认 / 1.14.111.74 / TTL 600；resolvectl 从网络返回该 IP |
+| 网络 | 云防火墙 TCP 443 已添加；原 TCP 80/22 和 ICMP 保留；UFW inactive，3001 未作为公网规则开放 |
+| Caddy | Valid configuration；解除 caddy.service 屏蔽并启用，最终 active/running/enabled；caddy-api 未解除屏蔽 |
+| HTTPS | 用户在服务器执行不带 -k 的 curl，https://255fm.cn/api/health 返回 `{"ok":true}`、HTTP 200 |
+| 浏览器 | 用户确认首页正常打开并提供截图；真实音频播放及后台操作仍待验证 |
+| 备案 | ICP 蜀ICP备2026063099号-1 已通过；公安申请已撤销，待重新提交 |
+
+### 15.2 已获批的服务器变更
+
+用户分别批准管理员初始化、入口配置与服务启动。DNS 和云防火墙由用户自行添加。Caddy 变更范围为：
+
+- 创建备份 `/etc/caddy/Caddyfile.before-255fm-20261020`，修改 `/etc/caddy/Caddyfile`。
+- 移除 `/etc/systemd/system/caddy.service` 的屏蔽链接，创建开机启用链接 `/etc/systemd/system/multi-user.target.wants/caddy.service`。
+- Caddy 自动证书/状态写入 `/var/lib/caddy/.local/share/caddy/`、`/var/lib/caddy/.config/caddy/`。
+- 脚本先备份原配置，用 caddy 用户校验；校验失败时恢复原文件，成功才 unmask、daemon-reload、enable --now。
+- 未安装 `/etc/255-phonograph/caddy.env` 或 caddy drop-in，未改应用环境，未更换发布目录。
+
+实际获批安装内容记录如下，供日后对照；本次文档回写不重新部署：
+
+```caddyfile
+{
+    log default {
+        format filter {
+            wrap json
+            fields {
+                request>headers delete
+                request>uri delete
+                resp_headers delete
+                user_id delete
+            }
+        }
+    }
+}
+
+255fm.cn {
+    route {
+        header Cache-Control "private, no-store"
+        request_body {
+            max_size 220MB
+        }
+        reverse_proxy 127.0.0.1:3001 {
+            header_up -Authorization
+            header_up -Proxy-Authorization
+            header_up -Forwarded
+            header_up Host 255fm.cn
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Host 255fm.cn
+            header_up X-Forwarded-Proto https
+        }
+    }
+    handle_errors {
+        header Cache-Control "private, no-store"
+        respond "请求暂时无法处理" {err.status_code}
+    }
+}
+```
+
+当前配置没有旧模板的全站 Basic Auth、维护标记匹配或 access-log 文件输出；不能假定创建维护标记就会阻止请求。正式备份/恢复与 Fail2ban 验收前需核对这些差异，另批对齐方案。仓库模板本批未修改。
+
+### 15.3 当前开发顺序与发布门槛
+
+主线为丰富首页、音乐馆、播放器、后台功能。本批先落地统一 ICP 页脚，后续按[初版计划](../superpowers/plans/2026-10-20-public-initial-release.md)逐批开发；音乐馆排序、信息展示和筛选反馈为下一批优先评估项。网页能打开不等于内容、全部功能或公安备案已完成。
+
+本地 seed 中三首音频均为 1 秒合成文件；不通过重置线上曲库替换示例。由用户通过后台提供真实素材，验证登录、上传、发布、播放与拖动后再整理首批内容。尚需核对 www 入口、真实设备布局、后台 HTTPS 会话、必要备份恢复和发布回滚。提交、推送、部署及真实数据操作另按明确范围批准。
+
+备案页脚参考[腾讯云悬挂备案号说明](https://cloud.tencent.com/document/product/243/61412)，ICP 链接指向 https://beian.miit.gov.cn/；公安号取得后再添加真实号码、标识和链接。当前申请已撤销，后续要重新提交，不继续等待原申请审核。
+
+## 16. 2026-10-20 正式界面候选版与内容更新
+
+### 16.1 当前版本边界
+
+B“毛怪手帐”已接入正式 React 首页、独立音乐馆、迷你播放器及晚安电台空页面。当前本地 HEAD 仍为 `22db7be60e58dacd892cfffccde472584bbc506a`，候选改动未提交、未推送、未部署；不能用该 HEAD 表示这些新改动已打包发布。`localhost:4697` 是静态样板，`localhost:4701` 是正式生产构建加隔离后端预览，都不是线上入口。
+
+本地隔离数据仅在 `C:/Users/Administrator/AppData/Local/Temp/255-phonograph-public-ui-20261020/preview-data/`。约 62.69 秒合成静音音频、测试封面、歌词、测试账号和分类标签都属于本地验收，不同步到正式服务器。预览监听 127.0.0.1:4701；从家中访问它需要这台电脑，日常使用应访问正式域名。
+
+### 16.2 在家中更新歌曲
+
+1. 打开 `https://255fm.cn/admin`，使用既有网站管理员密码登录；新建歌曲入口为 `/admin/songs/new`。这与腾讯云/服务器登录密码是不同的账号用途。
+2. 选择音频文件，填写歌名、歌手；按需上传封面、LRC 或填写歌词，设置分类和标签。
+3. 保存草稿后，从歌曲列表发布。草稿不会进入公共曲库；只有已发布歌曲关联的分类和标签才会在前台筛选项出现。
+4. 刷新 `https://255fm.cn/music` 查看并播放。已打开页面没有实时推送新曲库的承诺，更新后先刷新。
+5. 内容变更直接写入服务器现有应用数据，不需要重新部署代码。需要验收一次真实长音频的完整播放、暂停、拖动、封面/歌词和手机访问后，才记为实际内容流程通过。
+
+### 16.3 候选版发布流程（待批准执行）
+
+本批 26 个获批文件加此前的 `src/components/SiteFooter.tsx`、`src/styles/global.css` 构成 28 个发布相关文件。此前四个 COS 脚本/测试、原始静态样板和本地数据库不纳入本次发布提交。具体清单维护在初版计划最新记录；提交与推送分别确认，固定完整提交 SHA 后再给服务器命令。
+
+下一次服务器操作先只读核对 current 的实际目标、服务的运行用户/工作目录/状态、Node 路径与版本、磁盘余量和目标发布目录是否已存在。不得输出完整环境、凭据或数据库内容。用户最新回传确认服务 active/running，User/Group=phonograph，WorkingDirectory=/srv/255-phonograph/current，数据目录=/var/lib/255-phonograph；current 的历史 SHA 不能替代部署前复核。
+
+获得具体部署批准后，按固定 SHA 创建独立 release 目录、安装锁定依赖并构建，先完成本地健康验证再切换 current 和重启 phonograph.service。审批范围须明确 release 目录、依赖/构建产物、切换链接、短暂服务重启、所需回退步骤与验证命令。保留旧 release 以便故障时切回；不得把初次安装、管理员 setup 或 seed 命令当作更新步骤。
+
+本次候选没有后端、数据库结构、服务配置或依赖变更。沿用 `/var/lib/255-phonograph` 和既有账号/会话机制，不覆盖数据库、媒体或 phonograph.env；Caddy 保持第 15 节实际公开配置，不能直接安装仓库旧模板。发布失败时按已批准的回退范围恢复旧 current 并重启，不自动还原或清空数据库。正式备份/恢复仍待另批验收，不把旧 COS 合成探针当作生产数据保护已完成的证据。
+
+发布后检查 HTTPS health、首页新资源、直接访问 /music 与 /goodnight-radio、后台登录状态，以及用户真实歌曲播放。只有这些通过并记录实际 release SHA，才能报告新版已上线。当前未执行本节服务器变更。

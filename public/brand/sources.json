@@ -1,0 +1,84 @@
+{
+  "purpose": "255 留音机获批 B 版正式页面候选素材",
+  "created": "2026-10-20",
+  "publication": "release-candidate; not yet deployed",
+  "assets": [
+    {
+      "file": "hanser-main.png",
+      "description": "蓝白水手服 hanser 透明半身图",
+      "sourcePage": "https://mzh.moegirl.org.cn/Template%3AVirtuaReal",
+      "downloadUrl": "https://storage.moegirl.org.cn/moegirl/commons/7/7c/Virtuareal_Star_Hanser_1.png",
+      "processing": "保留下载原图；在网页中以 CSS 排版和裁切展示",
+      "note": "公开页面的形象参考，不据此认定已经取得网站发布授权"
+    },
+    {
+      "file": "hanser-chibi.png",
+      "description": "hanser 个性装扮介绍长图；以 CSS 展示兔耳插画、抱毛怪和表情等不同局部，用于首页及播放器旁的陪伴细节",
+      "sourcePage": "https://www.bilibili.com/opus/660113976360697891",
+      "downloadUrl": "https://i0.hdslb.com/bfs/album/e31ee02b0095d6e37b533ed7697c0b7e4abf8485.png",
+      "processing": "保留下载原图；在网页中通过 SVG viewBox 和 CSS 布局显示不同局部，不修改原始图像。",
+      "note": "本地视觉参考；正式选图在视觉方向确定后另行确认",
+      "crops": {
+        "hug": [
+          366,
+          1752,
+          288,
+          296
+        ],
+        "cheer": [
+          480,
+          2845,
+          140,
+          125
+        ],
+        "heart": [
+          300,
+          2840,
+          140,
+          150
+        ],
+        "rabbit": [
+          0,
+          300,
+          1057,
+          740
+        ]
+      }
+    },
+    {
+      "file": "fallback-cover.svg",
+      "description": "255 留音机统一兜底封面：几何唱片与 255 FM 字样",
+      "source": "Local authored SVG geometry",
+      "usage": "Only when an uploaded song cover is missing or fails to load; one shared asset for cards and mini-player."
+    }
+  ],
+  "demoContent": {
+    "songs": [
+      "等火山喷发的小星球",
+      "初光",
+      "夜行"
+    ],
+    "audio": "没有音频请求，播放按钮只演示界面状态",
+    "statistics": "不显示虚构听歌统计；样板说明正式版显示听歌记录。",
+    "covers": "三首歌曲均演示缺少封面状态，共用 fallback-cover.svg。渲染逻辑优先 coverUrl；人物图片用于页面插画，不代表真实歌曲封面。",
+    "durations": "243 / 216 / 227 秒仅供进度控件演示，不代表种子音频时长。"
+  },
+  "updated": "2026-10-20",
+  "revision": "More hanser imagery in page composition; uploaded song covers remain separate.",
+  "preview": {
+    "selfContained": true,
+    "networkRequests": "None for page assets or audio; ICP link navigates only when clicked.",
+    "directions": [
+      "a: 蓝白晴空",
+      "b: 毛怪手帐",
+      "c: 唱片收藏"
+    ],
+    "viewportTests": [
+      "1440x1000",
+      "768x1024",
+      "390x844"
+    ],
+    "screenshotMode": "Full page at each tested viewport; image height covers the document and width excludes the scrollbar."
+  },
+  "integration": "Original image bytes reused. CSS/SVG viewBox crops only. User selected this interface for production integration on 2026-10-20; source notes are retained and are not a license assertion."
+}
