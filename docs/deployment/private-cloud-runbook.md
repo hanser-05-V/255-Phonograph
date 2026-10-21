@@ -1,12 +1,31 @@
 # 255留音机云端运维与公开初版交接手册
 
-**最新接续：** 第 16 节记录正式界面候选、日常上传发布流程和待批准部署步骤；第 15 节仍是服务器实际公开 Caddy 配置。
+**Git 同步范围（2026-10-21）：** 用户已授权将这四份进度/部署文档提交并推送至 codex/pc-music-player；实际完成结果以 Git 命令和远端 SHA 核对为准。本次仅文档同步，线上功能版本继续为 f2b6892，不触发重新部署；四个 COS 文件不纳入提交。
 
-当前状态更新于 2026-10-20：ICP 已通过，apex DNS、云防火墙 80/443、Caddy HTTPS 入口已由用户验证，首页可以公开访问；管理员已初始化。公安申请已由用户取消，待初版完善后重新提交。当前主线为丰富网站功能，目标见[初版路线](private-cloud-next-steps.md)和[实施计划](../superpowers/plans/2026-10-20-public-initial-release.md)。本批更新文档与公共页脚，服务器尚未部署这些源码改动。
+**最新进展（2026-10-21）：** 正式网站已切换至 f2b6892，用户回传 DEPLOY_OK；代理独立 HTTPS 核对首页、音乐馆、晚安电台、后台入口及新版资源通过。真实歌曲上传、完整播放和家庭网络仍待用户验收；以本文末尾记录为准。
+
+**最新接续：** 文末记录 f2b6892 已上线及公网核验；第 16.2 节为日常上传发布流程，第 16 节其余候选/待批准状态为历史。第 15 节仍是服务器实际公开 Caddy 配置。
+
+当前状态更新于 2026-10-21：ICP 已通过，apex DNS、云防火墙 80/443、Caddy HTTPS 入口已由用户验证，首页可以公开访问；管理员已初始化。公安申请已由用户取消，待初版完善后重新提交。当前主线为丰富网站功能，目标见[初版路线](private-cloud-next-steps.md)和[实施计划](../superpowers/plans/2026-10-20-public-initial-release.md)。当时的公共页脚及后续正式界面改动已于 2026-10-21 随 f2b6892 上线，最新部署证据见文末。
 
 公开入口的用户回传证据及实际获批配置见第 15 节。仓库 `deploy/Caddyfile`、`caddy.env` 示例及 drop-in 仍按旧私用设计，不直接用于覆盖当前公开入口。第 10–14 节保留当时的证据与审批边界；旧章节中的“未开放”“masked”不代表当前状态。COS 合成正向、GET 拒绝及四项 ACL 拒绝已通过，正式备份/恢复、grant 条件和计费未验收，作为发布配套事项继续保留。
 
 设计依据：[规格](../superpowers/specs/2026-09-28-private-cloud-test-deployment-design.md)、[实施计划](../superpowers/plans/2026-09-28-private-cloud-test-deployment.md)。结果以[验收记录](private-cloud-acceptance.md)为准。
+
+## 当前发布与日常维护（2026-10-21）
+
+| 项目 | 当前状态 |
+| --- | --- |
+| 线上版本 | `f2b6892a1616421c62ce4faeeb4ee62315870636`，current 指向对应 release；已完成切换、重启及健康校验 |
+| 公开入口 | [首页](https://255fm.cn/)、[音乐馆](https://255fm.cn/music)、[晚安电台](https://255fm.cn/goodnight-radio) |
+| 内容维护 | [后台](https://255fm.cn/admin)、[新建歌曲](https://255fm.cn/admin/songs/new)；沿用原管理员密码 |
+| 音乐发布流程 | 上传音频、填写信息 → 保存草稿 → 歌曲列表发布 → 刷新音乐馆；内容变更无需重新部署代码 |
+| 数据与配置 | 数据目录 /var/lib/255-phonograph 保持；本次环境只更新版本标识，Caddy 保持第 15 节实装配置 |
+| 回退材料 | ad23f36 旧 release、phonograph.env.before-f2b6892 和部署构建目录均保留；没有执行真实故障回退演练 |
+| 下一个验收 | 用户上传一首真实歌曲，检查完整播放/拖动/封面/歌词，随后验证手机和家庭网络 |
+| 文档同步 | 四份进度记录纳入独立文档提交并按用户授权推送；分支 HEAD 可新于线上功能版本，四个 COS 文件保留未提交 |
+
+以下采购、私用模板和早期候选章节保留历史语境；当前线上版本和本次发布结果以此处及文末记录为准。不要因旧章节重新部署、初始化管理员或执行 COS 探针。
 
 ## 1. 采购及部署前输入
 
@@ -580,3 +599,69 @@ B“毛怪手帐”已接入正式 React 首页、独立音乐馆、迷你播放
 本次候选没有后端、数据库结构、服务配置或依赖变更。沿用 `/var/lib/255-phonograph` 和既有账号/会话机制，不覆盖数据库、媒体或 phonograph.env；Caddy 保持第 15 节实际公开配置，不能直接安装仓库旧模板。发布失败时按已批准的回退范围恢复旧 current 并重启，不自动还原或清空数据库。正式备份/恢复仍待另批验收，不把旧 COS 合成探针当作生产数据保护已完成的证据。
 
 发布后检查 HTTPS health、首页新资源、直接访问 /music 与 /goodnight-radio、后台登录状态，以及用户真实歌曲播放。只有这些通过并记录实际 release SHA，才能报告新版已上线。当前未执行本节服务器变更。
+
+## 2026-10-21 部署预检已通过，尚未切换线上版本
+
+- 已获用户明确批准部署候选 `f2b6892a1616421c62ce4faeeb4ee62315870636`、失败回退及三份部署文档/初版计划更新；该候选已提交并推送，GitHub 分支 SHA 已核对。文档后续提交、推送另行确认。
+- 用户回传：current=/srv/255-phonograph/releases/ad23f3644498dd542357092c1aaca018e5c971d4；服务 active/running，User/Group=phonograph，WorkingDirectory=/srv/255-phonograph/current，FragmentPath=/etc/systemd/system/phonograph.service。
+- Node v24.21.0，/srv 所在文件系统可用 30.27 GiB，git 可用；新 release、部署工作目录、配置备份/临时文件及切换临时链接均不存在。
+- 白名单配置：NODE_ENV=production，PHONOGRAPH_DEPLOYMENT=private-cloud，HOST=127.0.0.1，PORT=3001，DATA_DIR=/var/lib/255-phonograph，SITE_ORIGIN=https://255fm.cn，RELEASE_ID=ad23f3644498dd542357092c1aaca018e5c971d4。没有回传完整环境或凭据。
+- 下一步在 /var/tmp/255-phonograph-deploy-f2b6892/ 下获取固定提交、安装锁定依赖、运行 Linux 客户端测试和构建；暂不切换 current 或重启应用。只在收到成功输出后推进安装与切换。
+- 本段为用户终端回传证据与已批准的执行边界；尚无新版 Linux 构建或上线成功证据，不把推送 GitHub 写成已更新正式网站。
+
+本次获批服务器写入范围：
+
+- `/srv/255-phonograph/releases/f2b6892a1616421c62ce4faeeb4ee62315870636/`：固定版本代码、依赖及构建产物。
+- `/var/tmp/255-phonograph-deploy-f2b6892/`：获取源码、构建缓存及临时验证文件；构建使用 ubuntu，正式代码最终为 root 所有、应用只读。
+- `/etc/255-phonograph/phonograph.env.before-f2b6892`：原配置备份；`phonograph.env.new-f2b6892` 为同目录临时文件，替换 `phonograph.env` 时仅修改 PHONOGRAPH_RELEASE_ID。配置备份同样维持 root:root 0600，不显示其完整内容。
+- `/srv/255-phonograph/current` 及 `/srv/255-phonograph/current.next-f2b6892`：切换版本链接；`phonograph.service` 重启及原有运行日志。
+- 若新版启动/健康验证失败，恢复旧配置与旧 current，再启动服务。保留旧 release，不清理部署证据。
+
+本地 Git 比较已确认 ad23f36..f2b6892 的 server/、shared/、package.json、package-lock.json 均无差异；没有数据库结构迁移批次。既有启动流程沿用原数据目录，不传 --initialize-data、不更改管理员密码或人工修改歌曲。公开 Caddy 配置保持第 15 节实装内容。此前“环境配置保持不变”的描述在本次应精确理解为只同步 release 标识，其余配置不变。
+
+### 2026-10-21 Linux 构建通过，待安装正式 release
+
+用户执行已批准临时目录内的固定提交下载/构建命令，回传 Vitest 4.1.11：30 文件、168/168 通过，耗时 33.82 秒；npm run build 的前后端 noEmit、Vite 与服务端编译均成功。Vite 7.3.6 处理 92 modules，生成 index-CHkginCq.css（56.86 kB）与 index-DjUfLE4I.js（297.11 kB），与本地验收版资源名一致。最终输出 BUILD_READY f2b6892a1616421c62ce4faeeb4ee62315870636；脚本尾部已检查 current 仍指向 ad23f36。
+
+下一条获批范围内命令将只安装 release：从 source 复制 dist、server-dist、node_modules、package.json、package-lock.json，排除 .vite/.vite-temp 测试缓存；设置 root 所有、应用只读，核对复制内容，然后以 phonograph 用户对无数据库、无监听端口的应用实例做三个页面、五个资源和 health 的内存请求验证。该验证不访问正式数据库，不等于正式服务已重启或上线。安装命令的 Bash 与嵌入 Node 程序已在本地做语法检查，均退出码 0；尚未收到服务器 INSTALL_READY。
+
+### 2026-10-21 发布目录已存在，待完整核验和切换
+
+用户回传 sudo stat：/srv/255-phonograph/releases/f2b6892a1616421c62ce4faeeb4ee62315870636 为 directory，root:root，755。这只证明顶层目录存在及其权限；没有收到 STATIC_PROBE_OK、INSTALL_READY 或 DEPLOY_OK，不将其记为安装完成或已上线。不重跑要求目标目录不存在的安装命令，也不覆盖或清理该目录。
+
+下一条命令继续使用此前已批准的服务器范围：先确认 current 及既有服务仍运行 ad23f36、源提交为 f2b6892，再逐项比对已安装的 dist/server-dist/node_modules 和两份 package 文件，检查所有者/权限、以 phonograph 用户验证资源可读及应用模块可导入。配置只核对公开白名单，不打印完整环境。任何核验失败都在切换前停止。
+
+通过后将旧配置备份为 phonograph.env.before-f2b6892（root:root 0600），仅替换 PHONOGRAPH_RELEASE_ID，保留其余字节和原配置所有者/权限；经获批临时文件与临时链接原子替换配置/current，重启 phonograph.service。核对 MainPID 的实际工作目录、回环 health，再以正常证书校验访问公网 HTTPS health、三个页面与五个资源，并逐字节比对候选产物。切换后的异常或可捕获中断触发恢复旧配置/current、重启并检查旧版；回退失败必须明确输出 ROLLBACK_FAILED。该机制不承诺断电或不可捕获终止下的自动恢复。
+
+命令在本地仅做 Python/Bash 语法检查和内存模拟：成功路径、切换前停止、配置/链接/重启/就绪/HTTPS/中断六类回退触发，以及回退失败报告均通过；六种 LF/CRLF 与引号组合的版本标识替换检查确认其他字节保持不变。没有执行服务器命令，没有创建本地脚本文件。尚待用户回传真实 DEPLOY_OK 或 STOPPED/ROLLBACK 输出；D4/D5 不提前勾选，真实上传播放仍另验。数据库、媒体、管理员、Caddy 和四个 COS 文件均不在本次新增修改范围内。
+
+### 2026-10-21 新版部署成功与公网只读复核
+
+用户回传安装/切换命令的实际输出：
+
+    INSTALL_VERIFIED: candidate files, permissions and application module passed
+    DEPLOY_OK f2b6892a1616421c62ce4faeeb4ee62315870636
+    HTTPS_OK: health, 3 pages, 5 assets
+    CURRENT: /srv/255-phonograph/releases/f2b6892a1616421c62ce4faeeb4ee62315870636
+
+这份输出确认命令完成安装内容比对、配置备份与版本标识更新、current 切换、服务重启、进程工作目录/回环健康以及公网资源校验。该成功路径未触发回退，不将本次记为真实服务器故障回退演练。旧 release、配置备份和构建证据保留；未清理数据库、媒体或旧部署文件。
+
+代理另从本机执行 11 项只读 HTTPS GET（正常证书校验、未登录、未保存下载文件），全部 HTTP 200：
+
+| 检查 | 实际结果 |
+| --- | --- |
+| /api/health | ok=true |
+| /api/admin/auth/status | needsSetup=false，authenticated=false；匿名请求的正常登录状态，不需要重新初始化管理员 |
+| /、/music、/goodnight-radio、/admin | HTML 与本地 f2b6892 生产构建 SHA-256 一致 |
+| index-CHkginCq.css、index-DjUfLE4I.js | 与本地候选逐项 SHA-256 一致 |
+| hanser-main.png、hanser-chibi.png、fallback-cover.svg | 与本地候选逐项 SHA-256 一致 |
+
+本次内置浏览器读取超时，未取得上线后的新渲染画面；HTTP 文件一致性不能替代生产浏览器交互、实际管理员登录或真实长音频完整播放验收。手机布局继续沿用上一批本地浏览器证据，家中网络尚待用户确认。
+
+日常使用：访问 https://255fm.cn/；上传入口 https://255fm.cn/admin/songs/new，使用既有网站管理员密码。上传音频并填写信息，保存草稿后在歌曲列表发布，再刷新 https://255fm.cn/music 查看并播放；仅上传/保存草稿不会进入公共曲库。内容更新不需要重新部署代码，后续界面/功能代码变更仍按独立审批发布。localhost:4697 为旧静态样板，不能用于判断线上版本。
+
+三份部署文档和阶段计划已在本地回写上述证据，尚未提交或推送这次文档改动；四个未提交 COS 文件继续保留。当前部署任务完成，后续真实内容验收、视频功能、每日一签、备份恢复及公开初版整体交付不提前记为完成。
+
+### 2026-10-21 项目进度整理
+
+按用户“更新项目进度”请求，在既有四文档批准范围内统一当前摘要、状态表、阶段待办和跨电脑接续信息：f2b6892 已上线，部署完成；下一项为真实音频上传/发布/完整播放与正式设备验收。纠正仍将旧 SHA 或待发布写为当前状态的概览，保留按日期记录的历史证据。此次只是文档整理，没有新增运行、测试或内容验收证据；没有改业务代码、提交、推送、重部署或操作真实歌曲。
