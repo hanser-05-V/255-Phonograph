@@ -147,6 +147,28 @@ describe('public media route', () => {
     expect(response.body).toBe('m4a-data');
   });
 
+  it('serves published AAC with matching HEAD and Range responses and hides it when unlisted', async () => {
+    const bytes = Buffer.from('aac-range-0123456789');
+    const media = await seedPublishedAudio(context, bytes, 'audio/aac');
+    const songId = linkPublishedMedia(context, media, 'audio');
+    const url = `/api/media/${media.id}`;
+    const complete = await context.app.inject({method: 'GET', url});
+    const head = await context.app.inject({method: 'HEAD', url});
+    const partial = await context.app.inject({method: 'GET', url, headers: {range: 'bytes=4-8'}});
+    expect(complete.statusCode).toBe(200);
+    expect(complete.headers['content-type']).toBe('audio/aac');
+    expect(complete.rawPayload).toEqual(bytes);
+    expect(head.statusCode).toBe(200);
+    expect(head.headers['content-length']).toBe(String(bytes.length));
+    expect(head.headers['content-type']).toBe('audio/aac');
+    expect(head.body).toBe('');
+    expect(partial.statusCode).toBe(206);
+    expect(partial.headers['content-range']).toBe(`bytes 4-8/${bytes.length}`);
+    expect(partial.rawPayload).toEqual(bytes.subarray(4, 9));
+    context.db.prepare("UPDATE songs SET status = 'unlisted' WHERE id = ?").run(songId);
+    expect((await context.app.inject({method: 'GET', url})).statusCode).toBe(404);
+  });
+
   it('serves audio ranges and rejects invalid or missing media', async () => {
     const media = await seedPublishedAudio(context, Buffer.from('0123456789'));
     linkPublishedMedia(context, media, 'audio');

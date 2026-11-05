@@ -3,6 +3,28 @@ import {describe, expect, it} from 'vitest';
 import {UploadValidationError, validateUpload} from './media-validation.js';
 
 describe('validateUpload', () => {
+  it.each(['audio/aac', 'audio/x-aac', 'audio/vnd.dlna.adts', '', 'application/octet-stream'])(
+    'accepts an AAC detected from bytes with the browser declaration %j', (declaredMime) => {
+      expect(() => validateUpload('audio', {
+        originalName: 'SONG.AAC', declaredMime, detectedMime: 'audio/aac', byteSize: 200 * 1024 * 1024,
+      })).not.toThrow();
+    },
+  );
+
+  it.each(['image/png', 'audio/mpeg', 'audio/mp4', 'application/octet-stream', undefined])(
+    'rejects an AAC filename whose bytes identify as %s', (detectedMime) => {
+      expect(() => validateUpload('audio', {
+        originalName: 'fake.aac', declaredMime: 'application/octet-stream', detectedMime, byteSize: 32,
+      })).toThrowError('音频文件内容与格式不匹配');
+    },
+  );
+
+  it('rejects AAC above the audio size limit', () => {
+    expect(() => validateUpload('audio', {
+      originalName: 'large.aac', declaredMime: 'audio/aac', detectedMime: 'audio/aac', byteSize: 200 * 1024 * 1024 + 1,
+    })).toThrowError('音频不能超过 200 MB');
+  });
+
   it.each([
     ['audio', 'song.mp3', 'audio/mpeg', 'audio/mpeg', 200 * 1024 * 1024],
     ['audio', 'song.m4a', 'audio/mp4', 'audio/mp4', 1024],

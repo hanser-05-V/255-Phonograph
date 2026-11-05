@@ -17,6 +17,16 @@ afterEach(() => {
 });
 
 describe('MediaUploadField', () => {
+  it.each(['audio/aac', ''])('uploads an AAC file with browser MIME %j and reports its duration', async (type) => {
+    const user = userEvent.setup();
+    const onUploaded = vi.fn();
+    render(<MediaUploadField kind="audio" label="音频文件" onUploaded={onUploaded} />);
+    await user.upload(screen.getByLabelText('音频文件'), new File(['aac-frames'], 'song.aac', {type}));
+    expect(createdXhrs).toHaveLength(1);
+    act(() => createdXhrs[0].respond(201, {uploadId: 'aac-upload', originalName: 'song.aac', mimeType: 'audio/aac', byteSize: 10, durationSeconds: 32}));
+    expect(await screen.findByText('识别时长：0:32')).toBeInTheDocument();
+    expect(onUploaded).toHaveBeenCalledWith('aac-upload', 32);
+  });
   it('announces upload progress, cancels, and can retry the same selected file', async () => {
     const user = userEvent.setup();
     render(<MediaUploadField kind="audio" label="音频文件" />);

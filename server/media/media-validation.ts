@@ -31,6 +31,7 @@ const acceptedTypes = {
   audio: new Map([
     ['.mp3', new Set(['audio/mpeg'])],
     ['.m4a', new Set(['audio/mp4', 'audio/x-m4a'])],
+    ['.aac', new Set(['audio/aac', 'audio/x-aac', 'audio/vnd.dlna.adts'])],
   ]),
   cover: new Map([
     ['.jpg', new Set(['image/jpeg'])],
@@ -50,9 +51,9 @@ function normalizedMime(mime: string): string {
   return mime.split(';', 1)[0].trim().toLowerCase();
 }
 
-export function validateUpload(
+export function validateUploadDeclaration(
   kind: UploadKind,
-  input: UploadValidationInput,
+  input: Omit<UploadValidationInput, 'detectedMime'>,
 ): void {
   const limit = kind === 'audio' ? AUDIO_MAX_BYTES : COVER_MAX_BYTES;
   if (!Number.isSafeInteger(input.byteSize) || input.byteSize < 0) {
@@ -72,13 +73,23 @@ export function validateUpload(
 
   const extension = extensionOf(input.originalName);
   const expectedMimes = acceptedTypes[kind].get(extension);
-  if (!expectedMimes || !expectedMimes.has(normalizedMime(input.declaredMime))) {
+  const declaredMime = normalizedMime(input.declaredMime);
+  // Some systems leave AAC's MIME empty. Actual AAC bytes are still required after upload.
+  const unknownAacDeclaration = kind === 'audio' && extension === '.aac' &&
+    (declaredMime === '' || declaredMime === 'application/octet-stream');
+  if (!expectedMimes || (!expectedMimes.has(declaredMime) && !unknownAacDeclaration)) {
     throw new UploadValidationError(
       'UNSUPPORTED_MEDIA_TYPE',
-      kind === 'audio' ? '仅支持 MP3 或 M4A 音频' : '仅支持 JPG、PNG 或 WebP 封面',
+      kind === 'audio' ? '仅支持 MP3、M4A 或 AAC 音频' : '仅支持 JPG、PNG 或 WebP 封面',
       415,
     );
   }
+}
+
+export function validateUpload(kind: UploadKind, input: UploadValidationInput): void {
+  validateUploadDeclaration(kind, input);
+  const extension = extensionOf(input.originalName);
+  const expectedMimes = acceptedTypes[kind].get(extension)!;
 
   const detectedMime = input.detectedMime
     ? normalizedMime(input.detectedMime)

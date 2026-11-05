@@ -12,7 +12,7 @@ type MediaUploadFieldProps = {
 };
 
 const accepts: Record<MediaUploadKind, string> = {
-  audio: '.mp3,.m4a',
+  audio: '.mp3,.m4a,.aac',
   cover: '.jpg,.jpeg,.png,.webp',
   lrc: '.lrc,text/plain',
 };
@@ -58,10 +58,11 @@ export function MediaUploadField({
   return (
     <div className="admin-upload-field">
       <label htmlFor={inputId}>{label}</label>
+      {kind === 'audio' ? <p className="admin-field-hint" id={`${inputId}-hint`}>支持 MP3、M4A、AAC，单个文件最大 200 MiB。</p> : null}
       {existingName ? <p className="admin-field-hint">当前文件：{existingName}</p> : null}
       <input
         accept={accepts[kind]}
-        aria-describedby={errorId}
+        aria-describedby={[kind === 'audio' ? `${inputId}-hint` : '', errorId].filter(Boolean).join(' ') || undefined}
         disabled={upload.state === 'uploading'}
         id={inputId}
         onChange={(event) => {

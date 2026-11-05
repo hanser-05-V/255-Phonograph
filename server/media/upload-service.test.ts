@@ -128,6 +128,30 @@ describe('UploadService', () => {
       .toEqual({mime_type: 'audio/x-m4a'});
   });
 
+  it.each(['audio/aac', 'audio/x-aac', 'audio/vnd.dlna.adts', '', 'application/octet-stream'])(
+    'stores canonical AAC MIME and probes its duration for declaration %j', async (declaredMime) => {
+      const probed: Array<[string, string | undefined]> = [];
+      const service = new UploadService(db, mediaStore, mediaDirectory, {
+        detectFileType: async () => ({ext: 'aac', mime: 'audio/aac'}),
+        probeAudioDuration: async (file, mime) => { probed.push([file, mime]); return 32; },
+      });
+      const result = await service.ingestAudio('session-a', {originalName: 'song.aac', declaredMime, source: chunks('aac-frames')});
+      expect(result).toMatchObject({originalName: 'song.aac', mimeType: 'audio/aac', durationSeconds: 32});
+      expect(probed).toEqual([[expect.stringContaining(mediaDirectory), 'audio/aac']]);
+      expect(db.prepare('SELECT mime_type, duration_seconds FROM pending_uploads WHERE id = ?').get(result.uploadId))
+        .toEqual({mime_type: 'audio/aac', duration_seconds: 32});
+    },
+  );
+
+  it('removes spoofed AAC bytes even when the browser omits their MIME', async () => {
+    const service = createService({detected: {ext: 'png', mime: 'image/png'}});
+    await expect(service.ingestAudio('session-a', {
+      originalName: 'fake.aac', declaredMime: '', source: chunks('not an AAC'),
+    })).rejects.toMatchObject({code: 'INVALID_MEDIA', statusCode: 422});
+    expect(await listTemporary()).toEqual([]);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM pending_uploads').get()).toEqual({count: 0});
+  });
+
   it('removes only the current temporary file when the client aborts', async () => {
     const service = createService();
     const controller = new AbortController();

@@ -13,6 +13,7 @@ import {
   LRC_MAX_BYTES,
   UploadValidationError,
   validateUpload,
+  validateUploadDeclaration,
   type UploadKind,
 } from './media-validation.js';
 
@@ -41,7 +42,7 @@ export type LrcUpload = {
 
 export type UploadServiceDependencies = {
   detectFileType: (filePath: string) => Promise<DetectedFileType | undefined>;
-  probeAudioDuration: (filePath: string) => Promise<number | null>;
+  probeAudioDuration: (filePath: string, detectedMime?: string) => Promise<number | null>;
   generateUploadId: () => string;
   now: () => Date;
 };
@@ -228,10 +229,9 @@ export class UploadService {
     const tooLargeMessage =
       kind === 'audio' ? '音频不能超过 200 MB' : '封面不能超过 10 MB';
 
-    validateUpload(kind, {
+    validateUploadDeclaration(kind, {
       originalName: upload.originalName,
       declaredMime: upload.declaredMime,
-      detectedMime: upload.declaredMime,
       byteSize: 0,
     });
 
@@ -257,7 +257,7 @@ export class UploadService {
 
       const durationSeconds =
         kind === 'audio'
-          ? await this.#dependencies.probeAudioDuration(temporaryPath)
+          ? await this.#dependencies.probeAudioDuration(temporaryPath, detectedMime)
           : null;
       const uploadId = this.#dependencies.generateUploadId();
 

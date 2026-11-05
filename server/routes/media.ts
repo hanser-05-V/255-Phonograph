@@ -13,7 +13,7 @@ type MediaRow = {
 };
 
 const PUBLIC_MEDIA_MIME_TYPES = {
-  audio: new Set(['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'video/mp4', 'audio/wav']),
+  audio: new Set(['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'video/mp4', 'audio/wav', 'audio/aac']),
   cover: new Set(['image/jpeg', 'image/png', 'image/webp']),
 } satisfies Record<MediaRow['kind'], ReadonlySet<string>>;
 
